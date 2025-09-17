@@ -398,7 +398,7 @@ if st.session_state.view == 'agendar':
                                 f"Horário: {horario}\nBarbeiro: {barbeiro}\n"
                                 f"Serviços: {', '.join(servicos_selecionados) if servicos_selecionados else 'Nenhum'}"
                             )
-                            enviar_email(assunto_email, mensagem_email, EMAIL, SENHA)
+                            enviar_email(assunto_email, mensagem_email)
                             
                             st.cache_data.clear()
                             st.session_state.view = 'agenda'
@@ -470,7 +470,7 @@ elif st.session_state.view == 'cancelar':
                 mensagem_email = f"O agendamento para {nome} às {horario} com {barbeiro} foi cancelado/liberado."
                 
                 # Enviamos o e-mail com os dados corretos
-                enviar_email(assunto_email, mensagem_email, EMAIL, SENHA)
+                enviar_email(assunto_email, mensagem_email)
                 
                 # Voltamos para a tela da agenda
                 st.session_state.view = 'agenda'
@@ -750,6 +750,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
