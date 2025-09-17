@@ -3,12 +3,12 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from google.cloud.firestore_v1.field_path import FieldPath
 from datetime import datetime, timedelta
-import smtplib
-from email.mime.text import MIMEText
 import time
 import os
 import json
 from PIL import Image
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
 
 # --- DEFINIÇÃO DE CAMINHOS SEGUROS (PARA O FAVICON) ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -134,26 +134,42 @@ barbeiros = ["Aluizio", "Lucas Borges"]
 
 # --- FUNÇÕES DE BACKEND (Adaptadas e Novas) ---
 # VERSÃO CORRETA DA FUNÇÃO
-def enviar_email(assunto, mensagem, email_remetente, senha_remetente):
+def enviar_email(assunto, mensagem):
     """
-    Envia um e-mail usando as credenciais fornecidas como parâmetros.
+    Função atualizada para enviar e-mails usando a API da Brevo.
+    Lê a chave da API e o e-mail do remetente das variáveis de ambiente do Render.
     """
-    if not email_remetente or not senha_remetente:
-        st.warning("Credenciais de e-mail não configuradas para envio.")
-        return
-    try:
-        msg = MIMEText(mensagem)
-        msg['Subject'] = assunto
-        msg['From'] = email_remetente
-        msg['To'] = email_remetente  # Envia para o próprio e-mail como notificação
+    # Passo 1: O código busca a chave secreta no "cofre" do Render.
+    api_key = os.environ.get("BREVO_API_KEY")
+    
+    # Passo 2: O código busca o teu e-mail (que também está no "cofre").
+    sender_email = os.environ.get("EMAIL_CREDENCIADO")
 
-        with smtplib.SMTP('smtp.gmail.com', 587) as server:
-            server.starttls()
-            # Usa os parâmetros recebidos para fazer o login
-            server.login(email_remetente, senha_remetente)
-            server.sendmail(email_remetente, email_remetente, msg.as_string())
-    except Exception as e:
-        st.error(f"Erro ao enviar e-mail: {e}")
+    # Se não encontrar as chaves no Render, avisa no log e para.
+    if not api_key or not sender_email:
+        print("AVISO: Credenciais da Brevo (BREVO_API_KEY ou EMAIL_CREDENCIADO) não configuradas. E-mail não enviado.")
+        return
+
+    # Passo 3: Configura a comunicação com a Brevo.
+    configuration = sib_api_v3_sdk.Configuration()
+    configuration.api_key['api-key'] = api_key
+    api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
+
+    # Passo 4: Monta o e-mail.
+    send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+        to=[{"email": sender_email}],
+        sender={"name": "Painel Interno Barbearia", "email": sender_email},
+        subject=assunto,
+        text_content=mensagem
+    )
+
+    try:
+        # Passo 5: Envia o e-mail.
+        api_instance.send_transac_email(send_smtp_email)
+        print(f"E-mail de notificação ('{assunto}') enviado com sucesso pela Brevo.")
+    except ApiException as e:
+        print(f"ERRO ao enviar e-mail com a Brevo: {e}")
+        st.error("Ocorreu um erro ao tentar enviar o e-mail de notificação.")
 
 def buscar_agendamentos_do_dia(data_obj):
     """
@@ -734,6 +750,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
