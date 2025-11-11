@@ -361,7 +361,45 @@ def desbloquear_horario_especifico(data_obj, horario, barbeiro):
     except Exception as e:
         st.error(f"Erro ao tentar desbloquear horário: {e}")
         return False
+
+def _normalizar_horario(texto):
+    """Tenta converter '10 e meia', '10 horas', '10:30', '10' para '10:00' ou '10:30'."""
+    texto = texto.lower().strip()
+    
+    # Converte "10 e meia" para "10:30"
+    texto = re.sub(r'(\d+)\s*e\s*meia', r'\1:30', texto)
+    # Converte "10 e 30" para "10:30"
+    texto = re.sub(r'(\d+)\s*e\s*(\d+)', r'\1:\2', texto)
+    # Converte "10 horas" para "10:00"
+    texto = re.sub(r'(\d+)\s*horas?', r'\1:00', texto)
+    
+    # Encontra o padrão de hora (ex: "10:30" ou "10")
+    match = re.search(r'(\d{1,2})(:(\d{2}))?', texto)
+    if not match:
+        return None
+
+    hora = int(match.group(1))
+    minutos_str = match.group(3)
+    
+    minutos = 0
+    if minutos_str:
+        minutos = int(minutos_str)
+    
+    # Arredonda os minutos para 00 ou 30 (ex: 10:05 -> 10:00, 10:40 -> 10:30)
+    if minutos < 15:
+        minutos = 0
+    elif minutos >= 15 and minutos < 45:
+        minutos = 30
+    else: # se for > 45, arredonda para a próxima hora
+        minutos = 0
+        hora += 1
         
+    # Validação final da hora
+    if hora < 8 or hora > 22: # (Ajuste se necessário)
+        return None 
+
+    return f"{hora:02d}:{minutos:02d}"
+
 def parsear_comando(texto):
     texto_original = texto
     barbeiro = None
@@ -947,6 +985,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
