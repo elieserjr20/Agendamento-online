@@ -746,42 +746,49 @@ else:
         key="data_input"
     )
 
-    #
-    # BLOCO DE VOZ COM A INDENTAÇÃO CORRIGIDA
-    #
-    #
-    # SUBSTITUA TODO O SEU 'with st.expander(...)' POR ESTE BLOCO
-    #
+    # --- INÍCIO DA NOVA LÓGICA DE VOZ (URL HACK) ---
+    
+    # 1. LEIA O PARÂMETRO DA URL
+    # Esta lógica agora fica FORA do expander
+    params = st.query_params
+    texto_falado_da_url = params.get("voz")
+
+    # 2. Se um novo texto de voz veio da URL...
+    if texto_falado_da_url:
+        st.info(f"Comando recebido: \"{texto_falado_da_url}\"")
+        
+        # 3. Tenta traduzir o comando
+        dados = parsear_comando(texto_falado_da_url)
+        
+        if dados:
+            # 4. SUCESSO! Armazena os dados na sessão para confirmação
+            st.session_state.dados_voz = {
+                'nome': dados['nome'],
+                'horario': dados['horario'],
+                'barbeiro': dados['barbeiro'],
+                'data_obj': datetime.today().date() # Já armazena a data de hoje
+            }
+        else:
+            # 5. FALHA. Limpa os dados antigos e avisa o usuário
+            st.session_state.dados_voz = None
+            st.error("Não entendi o comando. Tente falar 'Nome às XX horas com Barbeiro'.")
+        
+        # 6. LIMPE O PARÂMETRO DA URL (MUITO IMPORTANTE)
+        # para não processar de novo no próximo clique
+        st.query_params.clear()
+
+    # O EXPANDER AGORA SÓ DESENHA O BOTÃO E MOSTRA A CONFIRMAÇÃO
     with st.expander("🎙️ Agendamento Rápido por Voz (para Hoje)", expanded=True):
         
         # --- ETAPA 1: OUVIR ---
+        # Apenas "desenha" o botão. 
+        # A função componente_fala_para_texto() (que você deve ter substituído)
+        # agora recarrega a página com o parâmetro de URL.
+        componente_fala_para_texto() 
         
-        # 1. Chama o componente de voz
-        texto_falado = componente_fala_para_texto()
-        
-        # 2. Se um NOVO comando de voz foi recebido...
-        if isinstance(texto_falado, str) and texto_falado:
-            st.info(f"Comando recebido: \"{texto_falado}\"")
-            
-            # 3. Tenta traduzir o comando
-            dados = parsear_comando(texto_falado)
-            
-            if dados:
-                # 4. SUCESSO! Armazena os dados na sessão para confirmação
-                st.session_state.dados_voz = {
-                    'nome': dados['nome'],
-                    'horario': dados['horario'],
-                    'barbeiro': dados['barbeiro'],
-                    'data_obj': datetime.today().date() # Já armazena a data de hoje
-                }
-            else:
-                # 5. FALHA. Limpa os dados antigos e avisa o usuário
-                st.session_state.dados_voz = None
-                st.error("Não entendi o comando. Tente falar 'Nome às XX horas com Barbeiro'.")
-
         # --- ETAPA 2: CONFIRMAR ---
-        
-        # 6. Verifica se há dados na sessão esperando por confirmação
+        # Esta é a lógica que você já tinha e que estava correta.
+        # Ela é acionada pelo st.session_state.dados_voz (preenchido acima)
         if st.session_state.dados_voz:
             try:
                 # Pega os dados da sessão
@@ -845,7 +852,7 @@ else:
                 # Segurança: se os dados na sessão estiverem corrompidos
                 st.error("Erro nos dados da sessão. Por favor, fale novamente.")
                 st.session_state.dados_voz = None
-# (Aqui continua o resto do seu código, como 'st.markdown("---")', etc.)
+    
 
     # Usamos 'data_selecionada' como o nosso objeto de data principal
     data_obj = data_selecionada
@@ -1031,6 +1038,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
