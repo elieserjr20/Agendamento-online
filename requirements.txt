@@ -1,7 +1,8 @@
-streamlit
+streamlit>=1.30.0
 firebase-admin
 pandas
 google-cloud-firestore
 sib-api-v3-sdk
 pillow
+
 
