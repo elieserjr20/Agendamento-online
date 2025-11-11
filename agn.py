@@ -385,65 +385,22 @@ def parsear_comando(texto):
     return None # Falha no parse
     
 #
-# ADICIONE ESTA NOVA FUNÇÃO NO LUGAR DA 'handle_voice_submission'
+# SUBSTITUA A SUA FUNÇÃO 'componente_fala_para_texto' POR ESTA VERSÃO CORRIGIDA
 #
 def componente_fala_para_texto():
     """
     Cria um componente HTML/JS que usa a Web Speech API do navegador
     para capturar a fala e retornar o TEXTO transcrito para o Streamlit.
+    
+    *** VERSÃO 2 (CORRIGIDA): ***
+    Esta versão inicializa a API de fala SOMENTE DEPOIS do clique no botão,
+    para obedecer as regras de segurança dos navegadores modernos.
     """
     
     # HTML e JavaScript para o botão
-    # Usamos o `Streamlit.setComponentValue` do JavaScript para "devolver"
-    # o valor (o texto falado) para o Python.
     html_code = """
-    <script>
-        // Inicializa a API de reconhecimento de fala do navegador
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'pt-BR'; // Define o idioma
-        recognition.interimResults = false; // Queremos apenas o resultado final
-        recognition.maxAlternatives = 1;
-
-        const button = document.getElementById('speechButton');
-        const status = document.getElementById('speechStatus');
-
-        // O que acontece quando o botão é clicado
-        button.onclick = () => {
-            try {
-                recognition.start();
-                status.innerHTML = "Ouvindo... 🎙️";
-                button.disabled = true;
-            } catch(e) {
-                status.innerHTML = "Erro: Navegador já está ouvindo.";
-            }
-        };
-
-        // O que acontece quando a fala é reconhecida
-        recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            status.innerHTML = `Você disse: "<i>${transcript}</i>"`;
-            button.disabled = false;
-            
-            // Esta é a linha mágica que envia o texto de volta para o Python
-            Streamlit.setComponentValue(transcript); 
-        };
-
-        // Lida com o fim da audição
-        recognition.onspeechend = () => {
-            recognition.stop();
-            status.innerHTML = "Processando...";
-            button.disabled = false;
-        };
-
-        // Lida com erros
-        recognition.onerror = (event) => {
-            status.innerHTML = `Erro no reconhecimento: ${event.error}`;
-            button.disabled = false;
-        };
-    </script>
-
     <style>
+        /* (Os estilos CSS são os mesmos de antes) */
         #speechButton {
             background-color: #FF4B4B; /* Vermelho do Streamlit */
             color: white;
@@ -465,14 +422,82 @@ def componente_fala_para_texto():
     
     <button id="speechButton">🎙️ Clique para Agendar por Voz</button>
     <div id="speechStatus">Clique no botão e fale (ex: "Júnior às 10 com Lucas")</div>
+
+    <script>
+        const button = document.getElementById('speechButton');
+        const status = document.getElementById('speechStatus');
+
+        // O que acontece quando o botão é clicado
+        button.onclick = () => {
+            
+            // --- ESTA É A CORREÇÃO ---
+            // Só inicializamos a API DEPOIS do clique.
+            
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            
+            // Verifica se o navegador suporta a API
+            if (!SpeechRecognition) {
+                status.innerHTML = "Erro: Seu navegador não suporta esta função.";
+                return;
+            }
+            
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'pt-BR'; // Define o idioma
+            recognition.interimResults = false; // Queremos apenas o resultado final
+            recognition.maxAlternatives = 1;
+
+            // --- Movemos todos os 'handlers' para dentro do clique ---
+
+            // O que acontece quando a fala é reconhecida
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                status.innerHTML = `Você disse: "<i>${transcript}</i>"`;
+                
+                // Envia o texto de volta para o Python
+                Streamlit.setComponentValue(transcript); 
+            };
+
+            // Lida com o fim da audição
+            recognition.onspeechend = () => {
+                recognition.stop();
+                status.innerHTML = "Processando...";
+                button.disabled = false;
+            };
+
+            // Lida com erros (agora mais detalhado)
+            recognition.onerror = (event) => {
+                let errorMsg = event.error;
+                if (event.error === 'not-allowed') {
+                    errorMsg = "Permissão do microfone negada. Verifique o cadeado na barra de endereço.";
+                } else if (event.error === 'no-speech') {
+                    errorMsg = "Nenhuma fala detectada. Tente de novo.";
+                }
+                status.innerHTML = `Erro: ${errorMsg}`;
+                button.disabled = false;
+            };
+
+            // Lida com o início da audição
+            recognition.onstart = () => {
+                status.innerHTML = "Ouvindo... 🎙️";
+                button.disabled = true;
+            };
+
+            // Tenta iniciar a captura de áudio
+            try {
+                recognition.start();
+            } catch(e) {
+                status.innerHTML = "Erro ao iniciar: " + e.message;
+                button.disabled = false;
+            }
+        };
+    </script>
     """
     
     # Executa o componente e espera o valor de retorno (o texto)
-    # O valor só é retornado uma vez, quando Streamlit.setComponentValue é chamado
+    # (Lembre-se que removemos o 'key=' daqui)
     valor_retornado = components.html(html_code, height=150)
     
     return valor_retornado
-
 
 # --- INICIALIZAÇÃO DO ESTADO DA SESSÃO ---
 if 'view' not in st.session_state:
@@ -956,6 +981,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
