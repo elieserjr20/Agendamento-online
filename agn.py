@@ -539,7 +539,7 @@ if st.session_state.view == 'agendar':
                             enviar_email(assunto_email, mensagem_email)
                             
                             st.cache_data.clear()
-                            st.session_state.view = 'agenda'
+                            st.session_state.view = 'main'
                             time.sleep(2)
                             st.rerun()
                         else:
@@ -611,7 +611,7 @@ elif st.session_state.view == 'cancelar':
                 enviar_email(assunto_email, mensagem_email)
                 
                 # Voltamos para a tela da agenda
-                st.session_state.view = 'agenda'
+                st.session_state.view = 'main'
                 time.sleep(2)
                 st.rerun()
             else:
@@ -676,7 +676,7 @@ elif st.session_state.view == 'fechar':
                         if sucesso_total:
                             st.success("Horários fechados com sucesso!")
                             st.cache_data.clear()
-                            st.session_state.view = 'agenda' # <-- Corrigido para 'agenda'
+                            st.session_state.view = 'main' # <-- Corrigido para 'agenda'
                             time.sleep(2)
                             st.rerun()
                         else:
@@ -935,6 +935,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
