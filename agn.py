@@ -134,10 +134,13 @@ barbeiros = ["Aluizio", "Lucas Borges"]
 
 # --- FUNÇÕES DE BACKEND (Adaptadas e Novas) ---
 # VERSÃO CORRETA DA FUNÇÃO
+# COLOQUE ESTA VERSÃO NO LUGAR DA SUA FUNÇÃO enviar_email
+
 def enviar_email(assunto, mensagem):
     """
     Função atualizada para enviar e-mails usando a API da Brevo.
     Lê a chave da API e o e-mail do remetente das variáveis de ambiente do Render.
+    MOSTRA AVISOS NA TELA se as chaves falharem.
     """
     # Passo 1: O código busca a chave secreta no "cofre" do Render.
     api_key = os.environ.get("BREVO_API_KEY")
@@ -145,9 +148,12 @@ def enviar_email(assunto, mensagem):
     # Passo 2: O código busca o teu e-mail (que também está no "cofre").
     sender_email = os.environ.get("EMAIL_CREDENCIADO")
 
-    # Se não encontrar as chaves no Render, avisa no log e para.
+    # Se não encontrar as chaves no Render, avisa no log E NA TELA.
     if not api_key or not sender_email:
         print("AVISO: Credenciais da Brevo (BREVO_API_KEY ou EMAIL_CREDENCIADO) não configuradas. E-mail não enviado.")
+        # --- MELHORIA ADICIONADA ---
+        st.warning("AVISO: Credenciais de E-mail não configuradas no servidor. A notificação não foi enviada.")
+        # ---------------------------
         return
 
     # Passo 3: Configura a comunicação com a Brevo.
@@ -169,7 +175,9 @@ def enviar_email(assunto, mensagem):
         print(f"E-mail de notificação ('{assunto}') enviado com sucesso pela Brevo.")
     except ApiException as e:
         print(f"ERRO ao enviar e-mail com a Brevo: {e}")
-        st.error("Ocorreu um erro ao tentar enviar o e-mail de notificação.")
+        # --- MELHORIA ADICIONADA ---
+        st.error(f"Ocorreu um erro ao tentar enviar o e-mail de notificação: {e}")
+        # ---------------------------
 
 def buscar_agendamentos_do_dia(data_obj):
     """
@@ -750,6 +758,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
