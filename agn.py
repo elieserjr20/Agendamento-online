@@ -450,7 +450,7 @@ def componente_fala_para_texto():
     </style>
     
     <button id="speechButton">🎙️ Clique para Agendar por Voz</button>
-    <div id="speechStatus">Clique no botão e fale (ex: "Júnior às 10 com Lucas")</div>
+    <div id="speechStatus">Clique no botão e fale (ex: "Cliente às 10 com Lucas Borges")</div>
 
     <script>
         const button = document.getElementById('speechButton');
@@ -1010,6 +1010,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
