@@ -412,25 +412,18 @@ def parsear_comando(texto):
         return {"nome": nome_cliente, "horario": horario, "barbeiro": barbeiro}
     
     return None # Falha no parse
-    
-#
-# SUBSTITUA A SUA FUNÇÃO 'componente_fala_para_texto' POR ESTA VERSÃO CORRIGIDA
-#
-#
-# SUBSTITUA A SUA FUNÇÃO 'componente_fala_para_texto' POR ESTA:
-#
+
+
 def componente_fala_para_texto():
     """
     Cria um componente HTML/JS que usa a Web Speech API.
-    *** VERSÃO 3 (O "HACK" DO URL): ***
-    Esta versão envia o texto de volta para o Python
-    recarregando a página com um parâmetro de URL (?voz=...).
+    *** VERSÃO 4 (O "HACK" CORRIGIDO): ***
+    Recarrega o PRÓPRIO IFRAME (window.location), não o 'parent'.
     """
     
     # HTML e JavaScript para o botão
     html_code = """
     <style>
-        /* (Os seus estilos CSS para o botão e status vêm aqui) */
         #speechButton {
             background-color: #FF4B4B; color: white; padding: 10px 20px;
             border: none; border-radius: 5px; font-size: 16px; cursor: pointer;
@@ -442,13 +435,12 @@ def componente_fala_para_texto():
     </style>
     
     <button id="speechButton">🎙️ Clique para Agendar por Voz</button>
-    <div id="speechStatus">Clique no botão e fale (ex: "Júnior às 10 com Lucas Borges")</div>
+    <div id="speechStatus">Clique no botão e fale (ex: "Cliente às 10 com Lucas Borges")</div>
 
     <script>
         const button = document.getElementById('speechButton');
         const status = document.getElementById('speechStatus');
 
-        // O que acontece quando o botão é clicado
         button.onclick = () => {
             
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -461,21 +453,19 @@ def componente_fala_para_texto():
             recognition.interimResults = false;
             recognition.maxAlternatives = 1;
 
-            // --- A MUDANÇA CRÍTICA ESTÁ AQUI ---
-            // O que acontece quando a fala é reconhecida
+            // --- ESTA É A CORREÇÃO FINAL ---
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 status.innerHTML = `Você disse: "<i>${transcript}</i>"`;
                 
-                // Pega a URL atual (sem params)
-                const baseUrl = window.parent.location.origin + window.parent.location.pathname;
+                // Pega a URL ATUAL (do iframe) e remove params antigos
+                const currentUrl = window.location.href.split('?')[0];
                 
-                // Recarrega a página-pai com o novo param ?voz=...
-                window.parent.location.href = baseUrl + "?voz=" + encodeURIComponent(transcript);
+                // Recarrega o PRÓPRIO iframe com o novo param
+                window.location.href = currentUrl + "?voz=" + encodeURIComponent(transcript);
             };
-            // --- FIM DA MUDANÇA ---
+            // --- FIM DA CORREÇÃO ---
 
-            // (O resto dos 'handlers' de JS)
             recognition.onspeechend = () => {
                 recognition.stop();
                 status.innerHTML = "Processando...";
@@ -484,7 +474,7 @@ def componente_fala_para_texto():
             recognition.onerror = (event) => {
                 let errorMsg = event.error;
                 if (event.error === 'not-allowed') {
-                    errorMsg = "Permissão do microfone negada. Verifique o cadeado na barra de endereço.";
+                    errorMsg = "Permissão do microfone negada.";
                 } else if (event.error === 'no-speech') {
                     errorMsg = "Nenhuma fala detectada. Tente de novo.";
                 }
@@ -496,7 +486,6 @@ def componente_fala_para_texto():
                 button.disabled = true;
             };
 
-            // Tenta iniciar a captura de áudio
             try {
                 recognition.start();
             } catch(e) {
@@ -1027,6 +1016,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
