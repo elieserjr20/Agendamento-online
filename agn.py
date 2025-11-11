@@ -254,22 +254,51 @@ def desbloquear_horario(data_obj, horario_agendado, barbeiro):
         # Apenas avisa no console, não precisa mostrar erro para o usuário
         print(f"Aviso: Não foi possível desbloquear o horário seguinte. {e}")
 
+#
+# SUBSTITUA A SUA FUNÇÃO 'verificar_disponibilidade_especifica' POR ESTA:
+#
 def verificar_disponibilidade_especifica(data_obj, horario, barbeiro):
-    """ Verifica de forma eficiente se um único horário está livre. """
-    if not db: return False
+    """
+    Verifica de forma eficiente se um único horário está livre e, 
+    se não estiver, retorna os detalhes de quem o ocupa.
+    
+    Esta é a versão CORRIGIDA que retorna um DICIONÁRIO.
+    """
+    if not db: 
+        return {'status': 'indisponivel', 'cliente': 'DB Error'}
+        
     data_para_id = data_obj.strftime('%Y-%m-%d')
     id_padrao = f"{data_para_id}_{horario}_{barbeiro}"
     id_bloqueado = f"{data_para_id}_{horario}_{barbeiro}_BLOQUEADO"
+    
     try:
+        # Tenta buscar o agendamento padrão
         doc_padrao_ref = db.collection('agendamentos').document(id_padrao)
+        doc_padrao = doc_padrao_ref.get()
+        if doc_padrao.exists:
+            dados = doc_padrao.to_dict()
+            nome_cliente = dados.get('nome', 'Ocupado')
+            
+            # Distingue bloqueios internos de clientes
+            if nome_cliente == "Fechado":
+                return {'status': 'fechado', 'cliente': 'Fechado'}
+            if nome_cliente == "Almoço":
+                return {'status': 'almoco', 'cliente': 'Almoço'}
+                
+            return {'status': 'ocupado', 'cliente': nome_cliente}
+
+        # Tenta buscar o bloqueio de "Corte+Barba"
         doc_bloqueado_ref = db.collection('agendamentos').document(id_bloqueado)
+        if doc_bloqueado_ref.get().exists:
+            # Se for um bloqueio de Corte+Barba, também tratamos como ocupado
+            return {'status': 'ocupado', 'cliente': 'BLOQUEADO'}
+            
+        # Se não achou nenhum dos dois, está livre
+        return {'status': 'disponivel'}
         
-        # Se qualquer um dos dois documentos existir, o horário não está livre.
-        if doc_padrao_ref.get().exists or doc_bloqueado_ref.get().exists:
-            return False # Indisponível
-        return True # Disponível
-    except Exception:
-        return False
+    except Exception as e:
+        print(f"Erro ao verificar disponibilidade: {e}")
+        return {'status': 'indisponivel', 'cliente': 'Erro'}
 
 def cancelar_agendamento(data_obj, horario, barbeiro):
     if not db: return None
@@ -981,6 +1010,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
