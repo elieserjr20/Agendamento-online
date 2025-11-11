@@ -9,10 +9,9 @@ import json
 from PIL import Image
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
-from st_audiorec import st_audiorec
-import io
-import speech_recognition as sr
-import re
+# ADICIONE ESTA LINHA
+import streamlit.components.v1 as components
+
 
 # --- DEFINIÇÃO DE CAMINHOS SEGUROS (PARA O FAVICON) ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -385,86 +384,94 @@ def parsear_comando(texto):
     
     return None # Falha no parse
     
-def handle_voice_submission(audio_bytes):
+#
+# ADICIONE ESTA NOVA FUNÇÃO NO LUGAR DA 'handle_voice_submission'
+#
+def componente_fala_para_texto():
     """
-    Função reutilizável para processar o áudio (da st_audiorec), 
-    transcrever, verificar disponibilidade E TENTAR salvar o agendamento.
-    Retorna True se sucesso, False se falha.
+    Cria um componente HTML/JS que usa a Web Speech API do navegador
+    para capturar a fala e retornar o TEXTO transcrito para o Streamlit.
     """
-    if not audio_bytes:
-        return False
-        
-    st.info("Processando áudio...")
     
-    try:
-        # 1. MUDANÇA AQUI: Não salva mais em disco.
-        # Usa io.BytesIO para tratar os bytes de áudio como um arquivo na memória.
-        wav_file = io.BytesIO(audio_bytes)
+    # HTML e JavaScript para o botão
+    # Usamos o `Streamlit.setComponentValue` do JavaScript para "devolver"
+    # o valor (o texto falado) para o Python.
+    html_code = """
+    <script>
+        // Inicializa a API de reconhecimento de fala do navegador
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'pt-BR'; // Define o idioma
+        recognition.interimResults = false; // Queremos apenas o resultado final
+        recognition.maxAlternatives = 1;
 
-        # 2. Tenta transcrever o áudio
-        r = sr.Recognizer()
-        # Usa o arquivo em memória
-        with sr.AudioFile(wav_file) as source:
-            audio_data = r.record(source)
+        const button = document.getElementById('speechButton');
+        const status = document.getElementById('speechStatus');
+
+        // O que acontece quando o botão é clicado
+        button.onclick = () => {
+            try {
+                recognition.start();
+                status.innerHTML = "Ouvindo... 🎙️";
+                button.disabled = true;
+            } catch(e) {
+                status.innerHTML = "Erro: Navegador já está ouvindo.";
+            }
+        };
+
+        // O que acontece quando a fala é reconhecida
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            status.innerHTML = `Você disse: "<i>${transcript}</i>"`;
+            button.disabled = false;
             
-        try:
-            texto_falado = r.recognize_google(audio_data, language='pt-BR')
-            st.info(f"Você disse: \"{texto_falado}\"")
+            // Esta é a linha mágica que envia o texto de volta para o Python
+            Streamlit.setComponentValue(transcript); 
+        };
 
-            # 3. Tenta processar o comando
-            dados = parsear_comando(texto_falado)
-            
-            if dados:
-                nome = dados['nome']
-                horario = dados['horario']
-                barbeiro_voz = dados['barbeiro']
-                data_obj_hoje = datetime.today().date()
-                
-                # 4. Verifica a disponibilidade ANTES de salvar
-                disponibilidade = verificar_disponibilidade_especifica(data_obj_hoje, horario, barbeiro_voz)
+        // Lida com o fim da audição
+        recognition.onspeechend = () => {
+            recognition.stop();
+            status.innerHTML = "Processando...";
+            button.disabled = false;
+        };
 
-                if disponibilidade['status'] == 'disponivel':
-                    # 5. Tenta salvar (agora sabemos que está livre)
-                    if salvar_agendamento(data_obj_hoje, horario, nome, "INTERNO (Voz)", ["(Voz)"], barbeiro_voz):
-                        st.success(f"Agendado! {nome} às {horario} com {barbeiro_voz}.")
-                        st.balloons()
-                        
-                        # (O resto da sua lógica de e-mail...)
-                        data_str_display = data_obj_hoje.strftime('%d/%m/%Y')
-                        assunto_email = f"Novo Agendamento (VOZ): {nome} em {data_str_display}"
-                        mensagem_email = (
-                            f"Agendamento rápido por VOZ:\n\nCliente: {nome}\nData: {data_str_display}\n"
-                            f"Horário: {horario}\nBarbeiro: {barbeiro_voz}"
-                        )
-                        enviar_email(assunto_email, mensagem_email)
-                        
-                        st.cache_data.clear()
-                        return True # Sucesso
-                    else:
-                        st.error("Falha inesperada ao salvar no banco de dados.")
-                
-                elif disponibilidade['status'] in ['ocupado', 'almoco', 'fechado']:
-                    cliente_existente = disponibilidade.get('cliente', 'um compromisso')
-                    if cliente_existente == "FECHADO (Lote)": cliente_existente = "fechado por você"
-                    elif cliente_existente == "ALMOÇO": cliente_existente = "o almoço"
-                    st.error(f"❌ HORÁRIO BLOQUEADO! O horário das {horario} com {barbeiro_voz} já está ocupado por {cliente_existente}.")
-                
-                else:
-                    st.error("Erro desconhecido ao verificar disponibilidade do horário.")
-                    
-            else:
-                st.error("Não entendi o comando. Tente falar 'Nome às XX horas com Barbeiro'.")
+        // Lida com erros
+        recognition.onerror = (event) => {
+            status.innerHTML = `Erro no reconhecimento: ${event.error}`;
+            button.disabled = false;
+        };
+    </script>
 
-        except sr.UnknownValueError:
-            st.error("Não foi possível entender o áudio. Tente novamente.")
-        except sr.RequestError as e:
-            st.error(f"Erro ao contatar serviço de fala; {e}")
+    <style>
+        #speechButton {
+            background-color: #FF4B4B; /* Vermelho do Streamlit */
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #speechButton:disabled {
+            background-color: #CCC;
+        }
+        #speechStatus {
+            margin-top: 10px;
+            font-family: sans-serif;
+            color: #555;
+        }
+    </style>
     
-    except Exception as e:
-        st.error(f"Erro crítico no processamento de áudio: {e}")
-        
-    return False # Falha (default)
-
+    <button id="speechButton">🎙️ Clique para Agendar por Voz</button>
+    <div id="speechStatus">Clique no botão e fale (ex: "Júnior às 10 com Lucas")</div>
+    """
+    
+    # Executa o componente e espera o valor de retorno (o texto)
+    # O valor só é retornado uma vez, quando Streamlit.setComponentValue é chamado
+    valor_retornado = components.html(html_code, height=150)
+    
+    return valor_retornado
 
 
 # --- INICIALIZAÇÃO DO ESTADO DA SESSÃO ---
@@ -926,6 +933,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
