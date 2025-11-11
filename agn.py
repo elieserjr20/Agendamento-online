@@ -524,7 +524,7 @@ def componente_fala_para_texto():
     
     # Executa o componente e espera o valor de retorno (o texto)
     # (Lembre-se que removemos o 'key=' daqui)
-    valor_retornado = components.html(html_code, height=150)
+    valor_retornado = components.html(html_code, height=150, key="speech_to_text_component")
     
     return valor_retornado
 
@@ -1049,6 +1049,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
