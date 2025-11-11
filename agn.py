@@ -746,10 +746,9 @@ else:
         key="data_input"
     )
 
-    # --- INÍCIO DA NOVA LÓGICA DE VOZ (URL HACK) ---
+    # --- INÍCIO DA LÓGICA CORRETA (URL HACK) ---
     
     # 1. LEIA O PARÂMETRO DA URL
-    # Esta lógica agora fica FORA do expander
     params = st.query_params
     texto_falado_da_url = params.get("voz")
 
@@ -766,32 +765,27 @@ else:
                 'nome': dados['nome'],
                 'horario': dados['horario'],
                 'barbeiro': dados['barbeiro'],
-                'data_obj': datetime.today().date() # Já armazena a data de hoje
+                'data_obj': datetime.today().date()
             }
         else:
-            # 5. FALHA. Limpa os dados antigos e avisa o usuário
+            # 5. FALHA.
             st.session_state.dados_voz = None
             st.error("Não entendi o comando. Tente falar 'Nome às XX horas com Barbeiro'.")
         
-        # 6. LIMPE O PARÂMETRO DA URL (MUITO IMPORTANTE)
-        # para não processar de novo no próximo clique
+        # 6. LIMPE O PARÂMETRO DA URL
         st.query_params.clear()
 
     # O EXPANDER AGORA SÓ DESENHA O BOTÃO E MOSTRA A CONFIRMAÇÃO
     with st.expander("🎙️ Agendamento Rápido por Voz (para Hoje)", expanded=True):
         
         # --- ETAPA 1: OUVIR ---
-        # Apenas "desenha" o botão. 
-        # A função componente_fala_para_texto() (que você deve ter substituído)
-        # agora recarrega a página com o parâmetro de URL.
+        # Apenas "desenha" o botão.
         componente_fala_para_texto() 
         
         # --- ETAPA 2: CONFIRMAR ---
-        # Esta é a lógica que você já tinha e que estava correta.
-        # Ela é acionada pelo st.session_state.dados_voz (preenchido acima)
+        # Esta lógica lê o st.session_state.dados_voz (preenchido acima)
         if st.session_state.dados_voz:
             try:
-                # Pega os dados da sessão
                 dados_para_confirmar = st.session_state.dados_voz
                 nome = dados_para_confirmar['nome']
                 horario = dados_para_confirmar['horario']
@@ -800,7 +794,6 @@ else:
 
                 st.markdown("---")
                 st.subheader("Confirmar Agendamento por Voz?")
-                # Mostra os dados de forma clara
                 st.write(f"**Cliente:** `{nome}`")
                 st.write(f"**Horário:** `{horario}`")
                 st.write(f"**Barbeiro:** `{barbeiro}`")
@@ -810,17 +803,14 @@ else:
                 # 7. BOTÃO DE CONFIRMAR
                 if col_confirm.button("✅ Confirmar Agendamento", key="btn_confirm_voz", type="primary", use_container_width=True):
                     
-                    # Roda a lógica de verificação SÓ AGORA (ao clicar)
                     disponibilidade = verificar_disponibilidade_especifica(data_obj, horario, barbeiro)
 
                     if disponibilidade['status'] == 'disponivel':
                         with st.spinner("Agendando..."):
-                            # Roda a lógica de SALVAR
                             if salvar_agendamento(data_obj, horario, nome, "INTERNO (Voz)", ["(Voz)"], barbeiro):
                                 st.success(f"Agendado! {nome} às {horario} com {barbeiro}.")
                                 st.balloons()
                                 
-                                # Lógica de e-mail
                                 data_str_display = data_obj.strftime('%d/%m/%Y')
                                 assunto_email = f"Novo Agendamento (VOZ): {nome} em {data_str_display}"
                                 mensagem_email = (f"Agendamento rápido por VOZ:\n\nCliente: {nome}\nData: {data_str_display}\n"
@@ -828,7 +818,7 @@ else:
                                 enviar_email(assunto_email, mensagem_email)
                                 
                                 st.cache_data.clear()
-                                st.session_state.dados_voz = None # Limpa a sessão
+                                st.session_state.dados_voz = None
                                 time.sleep(2)
                                 st.rerun()
                             else:
@@ -837,7 +827,7 @@ else:
                     elif disponibilidade['status'] in ['ocupado', 'almoco', 'fechado']:
                         cliente_existente = disponibilidade.get('cliente', 'um compromisso')
                         st.error(f"❌ HORÁRIO BLOQUEADO! O horário das {horario} com {barbeiro} já está ocupado por {cliente_existente}.")
-                        st.session_state.dados_voz = None # Limpa a sessão para tentar de novo
+                        st.session_state.dados_voz = None
                     
                     else:
                         st.error("Erro desconhecido ao verificar disponibilidade.")
@@ -845,11 +835,10 @@ else:
 
                 # 8. BOTÃO DE CANCELAR
                 if col_cancel.button("❌ Cancelar", key="btn_cancel_voz", use_container_width=True):
-                    st.session_state.dados_voz = None # Apenas limpa a sessão
+                    st.session_state.dados_voz = None
                     st.rerun()
 
             except KeyError:
-                # Segurança: se os dados na sessão estiverem corrompidos
                 st.error("Erro nos dados da sessão. Por favor, fale novamente.")
                 st.session_state.dados_voz = None
     
@@ -1038,6 +1027,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
