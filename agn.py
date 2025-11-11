@@ -333,12 +333,147 @@ def desbloquear_horario_especifico(data_obj, horario, barbeiro):
     except Exception as e:
         st.error(f"Erro ao tentar desbloquear horário: {e}")
         return False
+        
+def parsear_comando(texto):
+    """
+    Tenta extrair nome, horário e barbeiro de uma string de texto.
+    """
+    texto = texto.lower()
+    
+    # A variável 'barbeiros' está definida no escopo global do seu script
+    barbeiros_nomes = [b.lower() for b in barbeiros] 
+    
+    nome_cliente = None
+    horario = None
+    barbeiro = None
+
+    # 1. Encontrar Barbeiro
+    for b_nome in barbeiros_nomes:
+        if b_nome in texto:
+            barbeiro = "Lucas Borges" if "lucas" in b_nome else "Aluizio"
+            texto = texto.replace(b_nome, "") # Remove o nome do barbeiro
+            break
+    
+    # 2. Encontrar Horário (Ex: "10 horas", "10 e 30", "14:00")
+    match = re.search(r'(\d{1,2})[ :h]*(?:e |:)*(\d{2})?', texto)
+    if match:
+        hora = int(match.group(1))
+        minuto_str = match.group(2)
+        
+        minuto = 0
+        if minuto_str and minuto_str == "30":
+            minuto = 30
+        elif "meia" in texto:
+            minuto = 30
+            
+        horario = f"{hora:02d}:{minuto:02d}"
+        
+        # Remove o horário do texto
+        texto = re.sub(r'(\d{1,2})[ :h]*(?:e |:)*(\d{2})?', '', texto)
+        texto = texto.replace("meia", "").replace("horas", "").replace("às", "")
+
+    # 3. O que sobrou (idealmente) é o nome do cliente
+    texto = texto.replace("com", "").replace("para", "").replace(" o ", " ").strip()
+    
+    if texto:
+        nome_cliente = texto.strip().title()
+
+    # 4. Verifica se achou tudo
+    if nome_cliente and horario and barbeiro:
+        return {"nome": nome_cliente, "horario": horario, "barbeiro": barbeiro}
+    
+    return None # Falha no parse
+
+def handle_voice_submission(audio_bytes):
+    """
+    Função reutilizável para processar o áudio, transcrever, 
+    verificar disponibilidade E TENTAR salvar o agendamento.
+    Retorna True se sucesso, False se falha.
+    """
+    if not audio_bytes:
+        return False
+        
+    st.info("Processando áudio...")
+    
+    try:
+        # 1. Salva como WAV temporário
+        with open("audio.wav", "wb") as f:
+            f.write(audio_bytes)
+
+        # 2. Tenta transcrever o áudio
+        r = sr.Recognizer()
+        with sr.AudioFile("audio.wav") as source:
+            audio_data = r.record(source)
+            
+        try:
+            texto_falado = r.recognize_google(audio_data, language='pt-BR')
+            st.info(f"Você disse: \"{texto_falado}\"")
+
+            # 3. Tenta processar o comando
+            dados = parsear_comando(texto_falado)
+            
+            if dados:
+                nome = dados['nome']
+                horario = dados['horario']
+                barbeiro_voz = dados['barbeiro']
+                data_obj_hoje = datetime.today().date()
+                
+                # 4. Verifica a disponibilidade ANTES de salvar
+                disponibilidade = verificar_disponibilidade_especifica(data_obj_hoje, horario, barbeiro_voz)
+
+                if disponibilidade['status'] == 'disponivel':
+                    # 5. Tenta salvar (agora sabemos que está livre)
+                    if salvar_agendamento(data_obj_hoje, horario, nome, "INTERNO (Voz)", ["(Voz)"], barbeiro_voz):
+                        st.success(f"Agendado! {nome} às {horario} com {barbeiro_voz}.")
+                        st.balloons()
+                        
+                        # Enviar e-mail de notificação
+                        data_str_display = data_obj_hoje.strftime('%d/%m/%Y')
+                        assunto_email = f"Novo Agendamento (VOZ): {nome} em {data_str_display}"
+                        mensagem_email = (
+                            f"Agendamento rápido por VOZ:\n\nCliente: {nome}\nData: {data_str_display}\n"
+                            f"Horário: {horario}\nBarbeiro: {barbeiro_voz}"
+                        )
+                        enviar_email(assunto_email, mensagem_email)
+                        
+                        st.cache_data.clear()
+                        return True # Sucesso
+                    else:
+                        st.error("Falha inesperada ao salvar no banco de dados.")
+                
+                elif disponibilidade['status'] in ['ocupado', 'almoco', 'fechado']:
+                    # 5. Bloqueia o agendamento se o status não for 'disponivel'
+                    cliente_existente = disponibilidade.get('cliente', 'um compromisso')
+                    
+                    if cliente_existente == "FECHADO (Lote)": cliente_existente = "fechado por você"
+                    elif cliente_existente == "ALMOÇO": cliente_existente = "o almoço"
+                    
+                    st.error(f"❌ HORÁRIO BLOQUEADO! O horário das {horario} com {barbeiro_voz} já está ocupado por {cliente_existente}.")
+                
+                else:
+                    st.error("Erro desconhecido ao verificar disponibilidade do horário.")
+                    
+            else:
+                st.error("Não entendi o comando. Tente falar 'Nome às XX horas com Barbeiro'.")
+
+        except sr.UnknownValueError:
+            st.error("Não foi possível entender o áudio. Tente novamente.")
+        except sr.RequestError as e:
+            st.error(f"Erro ao contatar serviço de fala; {e}")
+    
+    except Exception as e:
+        st.error(f"Erro crítico no processamento de áudio: {e}")
+        
+    return False # Falha (default)
 
 # --- INICIALIZAÇÃO DO ESTADO DA SESSÃO ---
 if 'view' not in st.session_state:
     st.session_state.view = 'main' # 'main', 'agendar', 'cancelar'
     st.session_state.selected_data = None
     st.session_state.agendamento_info = {}
+params = st.query_params
+if params.get('modo') == 'voz':
+    st.session_state.view = 'voz'
 
 # --- LÓGICA DE NAVEGAÇÃO E EXIBIÇÃO (MODAIS) ---
 
@@ -412,7 +547,7 @@ if st.session_state.view == 'agendar':
     
     # Botão de voltar, também indentado corretamente
     if st.button("⬅️ Voltar para a Agenda"):
-        st.session_state.view = 'agenda'
+        st.session_state.view = 'main'
         st.rerun()
 
 
@@ -484,7 +619,7 @@ elif st.session_state.view == 'cancelar':
 
     # Botão para voltar para a agenda
     if cols[1].button("⬅️ Voltar para a Agenda", use_container_width=True):
-        st.session_state.view = 'agenda'
+        st.session_state.view = 'main'
         st.rerun()
 
 # ---- NOVO MODAL PARA FECHAR HORÁRIOS ----
@@ -498,7 +633,7 @@ elif st.session_state.view == 'fechar':
     # Se, por algum motivo, o objeto de data não estiver na sessão, voltamos para a agenda
     if not data_obj_para_fechar:
         st.error("Data não selecionada. Voltando para a agenda.")
-        st.session_state.view = 'agenda'
+        st.session_state.view = 'main'
         time.sleep(2)
         st.rerun()
 
@@ -550,8 +685,42 @@ elif st.session_state.view == 'fechar':
                 st.error("Horário selecionado inválido.")
 
         if btn_cols[1].button("⬅️ Voltar", use_container_width=True):
-            st.session_state.view = 'agenda' # <-- Corrigido para 'agenda'
+            st.session_state.view = 'main' # <-- Corrigido para 'agenda'
             st.rerun()
+            
+elif st.session_state.view == 'voz':
+    st.title("🎙️ Agendamento Rápido por Voz")
+    st.subheader("Fale o nome, horário e barbeiro (para hoje)")
+    
+    cols_logo_voz = st.columns([1, 1, 1])
+    with cols_logo_voz[1]:
+        st.image("https://i.imgur.com/XVOXz8F.png", width=250)
+
+    st.markdown("---")
+    
+    # Adiciona o componente de gravação
+    audio_bytes = audiorecorder(
+        "Clique para falar", 
+        "Gravando... (fale nome, horário e barbeiro)",
+        "Gravado! Processando...",
+        key="rec_atalho"
+    )
+    
+    if audio_bytes:
+        # Chama a função de processamento
+        if handle_voice_submission(audio_bytes):
+            # Se deu certo, espera 2s e volta para a agenda
+            time.sleep(2)
+            st.query_params.clear() # Limpa o "?modo=voz"
+            st.session_state.view = 'main'
+            st.rerun()
+            
+    st.markdown("---")
+    # Botão para voltar para a agenda completa
+    if st.button("⬅️ Voltar para a Agenda Completa"):
+        st.query_params.clear()
+        st.session_state.view = 'main'
+        st.rerun()
             
 # --- TELA PRINCIPAL (GRID DE AGENDAMENTOS) ---
 else:
@@ -567,6 +736,19 @@ else:
         min_value=datetime.today().date(),
         key="data_input"
     )
+
+    with st.expander("🎙️ Agendamento Rápido por Voz (para Hoje)"):
+        audio_bytes_main = audiorecorder(
+            "Clique para falar", 
+            "Gravando...", 
+            "Processando...", 
+            key="rec_main"
+        )
+        if audio_bytes_main:
+            # Reutiliza a mesma função de processamento
+            if handle_voice_submission(audio_bytes_main):
+                time.sleep(1) # Espera 1s para o usuário ver o sucesso
+                st.rerun()
 
     # --- VARIÁVEIS DE DATA ---
     # Usamos 'data_selecionada' como o nosso objeto de data principal
@@ -753,6 +935,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
