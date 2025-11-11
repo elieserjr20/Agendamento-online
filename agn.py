@@ -416,41 +416,33 @@ def parsear_comando(texto):
 #
 # SUBSTITUA A SUA FUNÇÃO 'componente_fala_para_texto' POR ESTA VERSÃO CORRIGIDA
 #
+#
+# SUBSTITUA A SUA FUNÇÃO 'componente_fala_para_texto' POR ESTA:
+#
 def componente_fala_para_texto():
     """
-    Cria um componente HTML/JS que usa a Web Speech API do navegador
-    para capturar a fala e retornar o TEXTO transcrito para o Streamlit.
-    
-    *** VERSÃO 2 (CORRIGIDA): ***
-    Esta versão inicializa a API de fala SOMENTE DEPOIS do clique no botão,
-    para obedecer as regras de segurança dos navegadores modernos.
+    Cria um componente HTML/JS que usa a Web Speech API.
+    *** VERSÃO 3 (O "HACK" DO URL): ***
+    Esta versão envia o texto de volta para o Python
+    recarregando a página com um parâmetro de URL (?voz=...).
     """
     
     # HTML e JavaScript para o botão
     html_code = """
     <style>
-        /* (Os estilos CSS são os mesmos de antes) */
+        /* (Os seus estilos CSS para o botão e status vêm aqui) */
         #speechButton {
-            background-color: #FF4B4B; /* Vermelho do Streamlit */
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
+            background-color: #FF4B4B; color: white; padding: 10px 20px;
+            border: none; border-radius: 5px; font-size: 16px; cursor: pointer;
         }
-        #speechButton:disabled {
-            background-color: #CCC;
-        }
+        #speechButton:disabled { background-color: #CCC; }
         #speechStatus {
-            margin-top: 10px;
-            font-family: sans-serif;
-            color: #555;
+            margin-top: 10px; font-family: sans-serif; color: #555;
         }
     </style>
     
     <button id="speechButton">🎙️ Clique para Agendar por Voz</button>
-    <div id="speechStatus">Clique no botão e fale (ex: "Cliente às 10 com Lucas Borges")</div>
+    <div id="speechStatus">Clique no botão e fale (ex: "Júnior às 10 com Lucas Borges")</div>
 
     <script>
         const button = document.getElementById('speechButton');
@@ -459,41 +451,36 @@ def componente_fala_para_texto():
         // O que acontece quando o botão é clicado
         button.onclick = () => {
             
-            // --- ESTA É A CORREÇÃO ---
-            // Só inicializamos a API DEPOIS do clique.
-            
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            
-            // Verifica se o navegador suporta a API
             if (!SpeechRecognition) {
                 status.innerHTML = "Erro: Seu navegador não suporta esta função.";
                 return;
             }
-            
             const recognition = new SpeechRecognition();
-            recognition.lang = 'pt-BR'; // Define o idioma
-            recognition.interimResults = false; // Queremos apenas o resultado final
+            recognition.lang = 'pt-BR';
+            recognition.interimResults = false;
             recognition.maxAlternatives = 1;
 
-            // --- Movemos todos os 'handlers' para dentro do clique ---
-
+            // --- A MUDANÇA CRÍTICA ESTÁ AQUI ---
             // O que acontece quando a fala é reconhecida
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 status.innerHTML = `Você disse: "<i>${transcript}</i>"`;
                 
-                // Envia o texto de volta para o Python
-                Streamlit.setComponentValue(transcript); 
+                // Pega a URL atual (sem params)
+                const baseUrl = window.parent.location.origin + window.parent.location.pathname;
+                
+                // Recarrega a página-pai com o novo param ?voz=...
+                window.parent.location.href = baseUrl + "?voz=" + encodeURIComponent(transcript);
             };
+            // --- FIM DA MUDANÇA ---
 
-            // Lida com o fim da audição
+            // (O resto dos 'handlers' de JS)
             recognition.onspeechend = () => {
                 recognition.stop();
                 status.innerHTML = "Processando...";
                 button.disabled = false;
             };
-
-            // Lida com erros (agora mais detalhado)
             recognition.onerror = (event) => {
                 let errorMsg = event.error;
                 if (event.error === 'not-allowed') {
@@ -504,8 +491,6 @@ def componente_fala_para_texto():
                 status.innerHTML = `Erro: ${errorMsg}`;
                 button.disabled = false;
             };
-
-            // Lida com o início da audição
             recognition.onstart = () => {
                 status.innerHTML = "Ouvindo... 🎙️";
                 button.disabled = true;
@@ -522,11 +507,8 @@ def componente_fala_para_texto():
     </script>
     """
     
-    # Executa o componente e espera o valor de retorno (o texto)
-    # (Lembre-se que removemos o 'key=' daqui)
-    valor_retornado = components.html(html_code, height=150, key="speech_to_text_component")
-    
-    return valor_retornado
+    # Apenas "desenha" o componente. Não tem 'key' e não retorna valor.
+    components.html(html_code, height=150)
 
 # --- INICIALIZAÇÃO DO ESTADO DA SESSÃO ---
 if 'view' not in st.session_state:
@@ -1049,6 +1031,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
