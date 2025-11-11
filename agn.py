@@ -742,24 +742,33 @@ else:
         key="data_input"
     )
 
-    # O EXPANDER AGORA CONTÉM TODA A LÓGICA (COMO DEVIA SER)
+    # --- PLANO D: O MICROFONE DO TECLADO (A SOLUÇÃO LIMPA) ---
+    
     with st.expander("🎙️ Agendamento Rápido por Voz (para Hoje)", expanded=True):
         
-        # --- ETAPA 1: OUVIR ---
-        # 1. Chama o componente. Na primeira vez, 'texto_falado' é None.
-        #    Depois de falar, a ponte (setComponentValue) faz o rerun,
-        #    e 'texto_falado' agora terá o texto.
-        texto_falado = componente_fala_para_texto()
+        st.info("Clique na caixa abaixo e use o **microfone do seu teclado** para falar.")
+
+        # --- ETAPA 1: OUVIR (Via Teclado) ---
         
-        # 2. Se um NOVO comando de voz foi recebido...
-        if isinstance(texto_falado, str) and texto_falado:
+        # Usamos um 'form' para que 'Enter' também funcione
+        with st.form(key="form_voz"):
+            texto_falado = st.text_input(
+                "Comando de Voz:", 
+                key="voz_text_input", 
+                placeholder="Ex: Júnior às 10 com Lucas"
+            )
+            
+            # O "estímulo" agora é um botão de Python normal!
+            submitted = st.form_submit_button("Processar Comando", type="primary", use_container_width=True)
+
+        if submitted and texto_falado:
             st.info(f"Comando recebido: \"{texto_falado}\"")
             
-            # 3. Tenta traduzir o comando
+            # 2. Tenta traduzir
             dados = parsear_comando(texto_falado)
             
             if dados:
-                # 4. SUCESSO! Armazena os dados na sessão para confirmação
+                # 3. SUCESSO! Armazena na sessão
                 st.session_state.dados_voz = {
                     'nome': dados['nome'],
                     'horario': dados['horario'],
@@ -767,16 +776,16 @@ else:
                     'data_obj': datetime.today().date()
                 }
             else:
-                # 5. FALHA.
+                # 4. FALHA.
                 st.session_state.dados_voz = None
-                st.error("Não entendi o comando. Tente falar 'Nome às XX horas com Barbeiro'.")
+                st.error("Não entendi o comando. Tente 'Nome às XX horas com Barbeiro'.")
             
-            # Limpa o valor do componente para evitar re-processar
-            # (Isto é opcional, mas boa prática)
-            st.rerun()
+            # Força o rerun para mostrar a Etapa 2
+            st.rerun() 
 
         # --- ETAPA 2: CONFIRMAR ---
-        # Esta lógica lê o st.session_state.dados_voz (preenchido acima)
+        # Esta é a sua lógica de confirmação, que já está correta.
+        # Ela é acionada pelo st.session_state.dados_voz (preenchido acima)
         if st.session_state.dados_voz:
             try:
                 dados_para_confirmar = st.session_state.dados_voz
@@ -793,7 +802,11 @@ else:
                 
                 col_confirm, col_cancel = st.columns(2)
                 
-                # 7. BOTÃO DE CONFIRMAR
+                # ... (O seu código de 'col_confirm.button' e 'col_cancel.button' 
+                #      (linhas 890-946 do seu agn(15).py) 
+                #      ENTRA EXATAMENTE AQUI, SEM MUDANÇAS) ...
+                
+                # (Vou colar por segurança, mas o seu já estava certo)
                 if col_confirm.button("✅ Confirmar Agendamento", key="btn_confirm_voz", type="primary", use_container_width=True):
                     
                     disponibilidade = verificar_disponibilidade_especifica(data_obj, horario, barbeiro)
@@ -826,7 +839,6 @@ else:
                         st.error("Erro desconhecido ao verificar disponibilidade.")
                         st.session_state.dados_voz = None
 
-                # 8. BOTÃO DE CANCELAR
                 if col_cancel.button("❌ Cancelar", key="btn_cancel_voz", use_container_width=True):
                     st.session_state.dados_voz = None
                     st.rerun()
@@ -834,7 +846,6 @@ else:
             except KeyError:
                 st.error("Erro nos dados da sessão. Por favor, fale novamente.")
                 st.session_state.dados_voz = None
-    
 
     # Usamos 'data_selecionada' como o nosso objeto de data principal
     data_obj = data_selecionada
@@ -1020,6 +1031,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
