@@ -9,8 +9,6 @@ import json
 from PIL import Image
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
-import re
-import unicodedata
 
 # --- DEFINIÇÃO DE CAMINHOS SEGUROS (PARA O FAVICON) ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -253,51 +251,22 @@ def desbloquear_horario(data_obj, horario_agendado, barbeiro):
         # Apenas avisa no console, não precisa mostrar erro para o usuário
         print(f"Aviso: Não foi possível desbloquear o horário seguinte. {e}")
 
-#
-# SUBSTITUA A SUA FUNÇÃO 'verificar_disponibilidade_especifica' POR ESTA:
-#
 def verificar_disponibilidade_especifica(data_obj, horario, barbeiro):
-    """
-    Verifica de forma eficiente se um único horário está livre e, 
-    se não estiver, retorna os detalhes de quem o ocupa.
-    
-    Esta é a versão CORRIGIDA que retorna um DICIONÁRIO.
-    """
-    if not db: 
-        return {'status': 'indisponivel', 'cliente': 'DB Error'}
-        
+    """ Verifica de forma eficiente se um único horário está livre. """
+    if not db: return False
     data_para_id = data_obj.strftime('%Y-%m-%d')
     id_padrao = f"{data_para_id}_{horario}_{barbeiro}"
     id_bloqueado = f"{data_para_id}_{horario}_{barbeiro}_BLOQUEADO"
-    
     try:
-        # Tenta buscar o agendamento padrão
         doc_padrao_ref = db.collection('agendamentos').document(id_padrao)
-        doc_padrao = doc_padrao_ref.get()
-        if doc_padrao.exists:
-            dados = doc_padrao.to_dict()
-            nome_cliente = dados.get('nome', 'Ocupado')
-            
-            # Distingue bloqueios internos de clientes
-            if nome_cliente == "Fechado":
-                return {'status': 'fechado', 'cliente': 'Fechado'}
-            if nome_cliente == "Almoço":
-                return {'status': 'almoco', 'cliente': 'Almoço'}
-                
-            return {'status': 'ocupado', 'cliente': nome_cliente}
-
-        # Tenta buscar o bloqueio de "Corte+Barba"
         doc_bloqueado_ref = db.collection('agendamentos').document(id_bloqueado)
-        if doc_bloqueado_ref.get().exists:
-            # Se for um bloqueio de Corte+Barba, também tratamos como ocupado
-            return {'status': 'ocupado', 'cliente': 'BLOQUEADO'}
-            
-        # Se não achou nenhum dos dois, está livre
-        return {'status': 'disponivel'}
         
-    except Exception as e:
-        print(f"Erro ao verificar disponibilidade: {e}")
-        return {'status': 'indisponivel', 'cliente': 'Erro'}
+        # Se qualquer um dos dois documentos existir, o horário não está livre.
+        if doc_padrao_ref.get().exists or doc_bloqueado_ref.get().exists:
+            return False # Indisponível
+        return True # Disponível
+    except Exception:
+        return False
 
 def cancelar_agendamento(data_obj, horario, barbeiro):
     if not db: return None
@@ -362,63 +331,12 @@ def desbloquear_horario_especifico(data_obj, horario, barbeiro):
         st.error(f"Erro ao tentar desbloquear horário: {e}")
         return False
 
-def parsear_comando(texto):
-    """
-    Tenta extrair nome, horário e barbeiro de uma string de texto.
-    """
-    texto = texto.lower()
-    
-    # A variável 'barbeiros' está definida no escopo global do seu script
-    barbeiros_nomes = [b.lower() for b in barbeiros] 
-    
-    nome_cliente = None
-    horario = None
-    barbeiro = None
-
-    # 1. Encontrar Barbeiro
-    for b_nome in barbeiros_nomes:
-        if b_nome in texto:
-            barbeiro = "Lucas Borges" if "lucas" in b_nome else "Aluizio"
-            texto = texto.replace(b_nome, "") # Remove o nome do barbeiro
-            break
-    
-    # 2. Encontrar Horário (Ex: "10 horas", "10 e 30", "14:00")
-    match = re.search(r'(\d{1,2})[ :h]*(?:e |:)*(\d{2})?', texto)
-    if match:
-        hora = int(match.group(1))
-        minuto_str = match.group(2)
-        
-        minuto = 0
-        if minuto_str and minuto_str == "30":
-            minuto = 30
-        elif "meia" in texto:
-            minuto = 30
-            
-        horario = f"{hora:02d}:{minuto:02d}"
-        
-        # Remove o horário do texto
-        texto = re.sub(r'(\d{1,2})[ :h]*(?:e |:)*(\d{2})?', '', texto)
-        texto = texto.replace("meia", "").replace("horas", "").replace("às", "")
-
-    # 3. O que sobrou (idealmente) é o nome do cliente
-    texto = texto.replace("com", "").replace("para", "").replace(" o ", " ").strip()
-    
-    if texto:
-        nome_cliente = texto.strip().title()
-
-    # 4. Verifica se achou tudo
-    if nome_cliente and horario and barbeiro:
-        return {"nome": nome_cliente, "horario": horario, "barbeiro": barbeiro}
-    
-    return None # Falha no parse
 # --- INICIALIZAÇÃO DO ESTADO DA SESSÃO ---
 if 'view' not in st.session_state:
     st.session_state.view = 'main' # 'main', 'agendar', 'cancelar'
     st.session_state.selected_data = None
     st.session_state.agendamento_info = {}
 
-if 'dados_voz' not in st.session_state:
-    st.session_state.dados_voz = None
 # --- LÓGICA DE NAVEGAÇÃO E EXIBIÇÃO (MODAIS) ---
 
 # ---- MODAL DE AGENDAMENTO ----
@@ -483,7 +401,7 @@ if st.session_state.view == 'agendar':
                             enviar_email(assunto_email, mensagem_email)
                             
                             st.cache_data.clear()
-                            st.session_state.view = 'main'
+                            st.session_state.view = 'agenda'
                             time.sleep(2)
                             st.rerun()
                         else:
@@ -491,7 +409,7 @@ if st.session_state.view == 'agendar':
     
     # Botão de voltar, também indentado corretamente
     if st.button("⬅️ Voltar para a Agenda"):
-        st.session_state.view = 'main'
+        st.session_state.view = 'agenda'
         st.rerun()
 
 
@@ -555,7 +473,7 @@ elif st.session_state.view == 'cancelar':
                 enviar_email(assunto_email, mensagem_email)
                 
                 # Voltamos para a tela da agenda
-                st.session_state.view = 'main'
+                st.session_state.view = 'agenda'
                 time.sleep(2)
                 st.rerun()
             else:
@@ -563,7 +481,7 @@ elif st.session_state.view == 'cancelar':
 
     # Botão para voltar para a agenda
     if cols[1].button("⬅️ Voltar para a Agenda", use_container_width=True):
-        st.session_state.view = 'main'
+        st.session_state.view = 'agenda'
         st.rerun()
 
 # ---- NOVO MODAL PARA FECHAR HORÁRIOS ----
@@ -577,7 +495,7 @@ elif st.session_state.view == 'fechar':
     # Se, por algum motivo, o objeto de data não estiver na sessão, voltamos para a agenda
     if not data_obj_para_fechar:
         st.error("Data não selecionada. Voltando para a agenda.")
-        st.session_state.view = 'main'
+        st.session_state.view = 'agenda'
         time.sleep(2)
         st.rerun()
 
@@ -620,7 +538,7 @@ elif st.session_state.view == 'fechar':
                         if sucesso_total:
                             st.success("Horários fechados com sucesso!")
                             st.cache_data.clear()
-                            st.session_state.view = 'main' # <-- Corrigido para 'agenda'
+                            st.session_state.view = 'agenda' # <-- Corrigido para 'agenda'
                             time.sleep(2)
                             st.rerun()
                         else:
@@ -629,7 +547,7 @@ elif st.session_state.view == 'fechar':
                 st.error("Horário selecionado inválido.")
 
         if btn_cols[1].button("⬅️ Voltar", use_container_width=True):
-            st.session_state.view = 'main' # <-- Corrigido para 'agenda'
+            st.session_state.view = 'agenda' # <-- Corrigido para 'agenda'
             st.rerun()
             
 # --- TELA PRINCIPAL (GRID DE AGENDAMENTOS) ---
@@ -647,111 +565,7 @@ else:
         key="data_input"
     )
 
-    # --- PLANO D: O MICROFONE DO TECLADO (A SOLUÇÃO LIMPA) ---
-    
-    with st.expander("🎙️ Agendamento Rápido por Voz (para Hoje)", expanded=True):
-        
-        st.info("Clique na caixa abaixo e use o **microfone do seu teclado** para falar.")
-
-        # --- ETAPA 1: OUVIR (Via Teclado) ---
-        
-        # Usamos um 'form' para que 'Enter' também funcione
-        with st.form(key="form_voz"):
-            texto_falado = st.text_input(
-                "Comando de Voz:", 
-                key="voz_text_input", 
-                placeholder="Ex: Cliente 10 horas Lucas Borges"
-            )
-            
-            # O "estímulo" agora é um botão de Python normal!
-            submitted = st.form_submit_button("Processar Comando", type="primary", use_container_width=True)
-
-        if submitted and texto_falado:
-            st.info(f"Comando recebido: \"{texto_falado}\"")
-            
-            # 2. Tenta traduzir
-            dados = parsear_comando(texto_falado)
-            
-            if dados:
-                # 3. SUCESSO! Armazena na sessão
-                st.session_state.dados_voz = {
-                    'nome': dados['nome'],
-                    'horario': dados['horario'],
-                    'barbeiro': dados['barbeiro'],
-                    'data_obj': datetime.today().date()
-                }
-            else:
-                # 4. FALHA.
-                st.session_state.dados_voz = None
-                st.error("Não entendi o comando. Tente 'Nome às XX horas com Barbeiro'.")
-            
-            # Força o rerun para mostrar a Etapa 2
-            st.rerun() 
-
-        # --- ETAPA 2: CONFIRMAR ---
-        # Esta é a sua lógica de confirmação, que já está correta.
-        # Ela é acionada pelo st.session_state.dados_voz (preenchido acima)
-        if st.session_state.dados_voz:
-            try:
-                dados_para_confirmar = st.session_state.dados_voz
-                nome = dados_para_confirmar['nome']
-                horario = dados_para_confirmar['horario']
-                barbeiro = dados_para_confirmar['barbeiro']
-                data_obj = dados_para_confirmar['data_obj']
-
-                st.markdown("---")
-                st.subheader("Confirmar Agendamento por Voz?")
-                st.write(f"**Cliente:** `{nome}`")
-                st.write(f"**Horário:** `{horario}`")
-                st.write(f"**Barbeiro:** `{barbeiro}`")
-                
-                col_confirm, col_cancel = st.columns(2)
-                
-                # ... (O seu código de 'col_confirm.button' e 'col_cancel.button' 
-                #      (linhas 890-946 do seu agn(15).py) 
-                #      ENTRA EXATAMENTE AQUI, SEM MUDANÇAS) ...
-                
-                # (Vou colar por segurança, mas o seu já estava certo)
-                if col_confirm.button("✅ Confirmar Agendamento", key="btn_confirm_voz", type="primary", use_container_width=True):
-                    
-                    disponibilidade = verificar_disponibilidade_especifica(data_obj, horario, barbeiro)
-
-                    if disponibilidade['status'] == 'disponivel':
-                        with st.spinner("Agendando..."):
-                            if salvar_agendamento(data_obj, horario, nome, "INTERNO (Voz)", ["(Voz)"], barbeiro):
-                                st.success(f"Agendado! {nome} às {horario} com {barbeiro}.")
-                                st.balloons()
-                                
-                                data_str_display = data_obj.strftime('%d/%m/%Y')
-                                assunto_email = f"Novo Agendamento (VOZ): {nome} em {data_str_display}"
-                                mensagem_email = (f"Agendamento rápido por VOZ:\n\nCliente: {nome}\nData: {data_str_display}\n"
-                                                  f"Horário: {horario}\nBarbeiro: {barbeiro}")
-                                enviar_email(assunto_email, mensagem_email)
-                                
-                                st.cache_data.clear()
-                                st.session_state.dados_voz = None
-                                time.sleep(2)
-                                st.rerun()
-                            else:
-                                st.error("Falha inesperada ao salvar no banco de dados.")
-                    
-                    elif disponibilidade['status'] in ['ocupado', 'almoco', 'fechado']:
-                        cliente_existente = disponibilidade.get('cliente', 'um compromisso')
-                        st.error(f"❌ HORÁRIO BLOQUEADO! O horário das {horario} com {barbeiro} já está ocupado por {cliente_existente}.")
-                        st.session_state.dados_voz = None
-                    
-                    else:
-                        st.error("Erro desconhecido ao verificar disponibilidade.")
-                        st.session_state.dados_voz = None
-
-                if col_cancel.button("❌ Cancelar", key="btn_cancel_voz", use_container_width=True):
-                    st.session_state.dados_voz = None
-                    st.rerun()
-
-            except KeyError:
-                st.error("Erro nos dados da sessão. Por favor, fale novamente.")
-                st.session_state.dados_voz = None
-
+    # --- VARIÁVEIS DE DATA ---
     # Usamos 'data_selecionada' como o nosso objeto de data principal
     data_obj = data_selecionada
     # Criamos a string 'DD/MM/AAAA' para usar nas chaves dos botões e exibição
@@ -936,32 +750,6 @@ else:
                         }
                         st.rerun()
                         
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
