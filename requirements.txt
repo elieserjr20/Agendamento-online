@@ -3,8 +3,7 @@ firebase-admin
 pandas
 google-cloud-firestore
 sib-api-v3-sdk
-st-audiorec
-SpeechRecognition
 pillow
+speech-to-text
 
 
