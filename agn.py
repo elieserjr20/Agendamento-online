@@ -412,99 +412,6 @@ def parsear_comando(texto):
     
     return None # Falha no parse
 
-
-# SUBSTITUA A SUA FUNÇÃO 'componente_fala_para_texto' (Linha 491) POR ESTA:
-#
-def componente_fala_para_texto():
-    """
-    Cria um componente HTML/JS que usa a Web Speech API.
-    *** VERSÃO NATIVA (A CORRETA) ***
-    Usa Streamlit.setComponentValue para enviar o texto para o Python,
-    o que (corretamente) aciona o st.rerun().
-    """
-    
-    # HTML e JavaScript para o botão
-    html_code = """
-    <style>
-        #speechButton {
-            background-color: #FF4B4B; color: white; padding: 10px 20px;
-            border: none; border-radius: 5px; font-size: 16px; cursor: pointer;
-        }
-        #speechButton:disabled { background-color: #CCC; }
-        #speechStatus {
-            margin-top: 10px; font-family: sans-serif; color: #555;
-        }
-    </style>
-    
-    <button id="speechButton">🎙️ Clique para Agendar por Voz</button>
-    <div id="speechStatus">Clique no botão e fale (ex: "Júnior às 10 com Lucas")</div>
-
-    <script>
-        const button = document.getElementById('speechButton');
-        const status = document.getElementById('speechStatus');
-
-        button.onclick = () => {
-            
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                status.innerHTML = "Erro: Seu navegador não suporta esta função.";
-                return;
-            }
-            const recognition = new SpeechRecognition();
-            recognition.lang = 'pt-BR';
-            recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
-
-            // --- ESTA É A "PONTE" CORRETA ---
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                status.innerHTML = `Você disse: "<i>${transcript}</i>"`;
-                
-                // Envia o texto de volta para o Python.
-                // Isto vai acionar o "rerun" que você mencionou.
-                Streamlit.setComponentValue(transcript);
-            };
-            // --- FIM DA CORREÇÃO ---
-
-            // (O resto dos 'handlers' de JS)
-            recognition.onspeechend = () => {
-                recognition.stop();
-                status.innerHTML = "Processando...";
-                button.disabled = false;
-            };
-            recognition.onerror = (event) => {
-                let errorMsg = event.error;
-                if (event.error === 'not-allowed') {
-                    errorMsg = "Permissão do microfone negada.";
-                } else if (event.error === 'no-speech') {
-                    errorMsg = "Nenhuma fala detectada. Tente de novo.";
-                }
-                status.innerHTML = `Erro: ${errorMsg}`;
-                button.disabled = false;
-            };
-            recognition.onstart = () => {
-                status.innerHTML = "Ouvindo... 🎙️";
-                button.disabled = true;
-            };
-
-            try {
-                recognition.start();
-            } catch(e) {
-                status.innerHTML = "Erro ao iniciar: " + e.message;
-                button.disabled = false;
-            }
-        };
-    </script>
-    """
-    
-    # Apenas "desenha" o componente. Não tem 'key'.
-    # O valor de retorno (o texto) será 'None' na primeira vez,
-    # e o 'transcript' na segunda vez (após o rerun).
-    valor_retornado = components.html(html_code, height=150)
-    
-    # Devolve o valor que o Streamlit recebeu (None ou o texto)
-    return valor_retornado
-
 # --- INICIALIZAÇÃO DO ESTADO DA SESSÃO ---
 if 'view' not in st.session_state:
     st.session_state.view = 'main' # 'main', 'agendar', 'cancelar'
@@ -1030,6 +937,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
