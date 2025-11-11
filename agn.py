@@ -469,7 +469,7 @@ def componente_fala_para_texto():
     
     # Executa o componente e espera o valor de retorno (o texto)
     # O valor só é retornado uma vez, quando Streamlit.setComponentValue é chamado
-    valor_retornado = components.html(html_code, height=150, key="speech_to_text_component")
+    valor_retornado = components.html(html_code, height=150)
     
     return valor_retornado
 
@@ -718,8 +718,13 @@ else:
         texto_falado = componente_fala_para_texto()
         
         # 2. Se o componente retornou um texto...
-        # (Este 'if' está DENTRO do 'with')
-        if texto_falado:
+        
+        # --- ESTA É A LINHA QUE CORRIGIMOS ---
+        # (Verifica se é uma 'string' antes de usar, para evitar o erro .lower())
+        if isinstance(texto_falado, str) and texto_falado:
+            
+            # (O 'if' acima substituiu o 'if texto_falado:' antigo)
+            
             st.info(f"Comando recebido: \"{texto_falado}\"")
             
             # 3. Pula direto para o "Tradutor" (parsear_comando)
@@ -764,6 +769,8 @@ else:
                     
             else:
                 st.error("Não entendi o comando. Tente falar 'Nome às XX horas com Barbeiro'.")
+
+# (Aqui continua o resto do seu código, como 'st.markdown("---")', etc.)
 
     # Usamos 'data_selecionada' como o nosso objeto de data principal
     data_obj = data_selecionada
@@ -949,6 +956,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
