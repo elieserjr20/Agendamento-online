@@ -362,104 +362,55 @@ def desbloquear_horario_especifico(data_obj, horario, barbeiro):
         st.error(f"Erro ao tentar desbloquear horário: {e}")
         return False
 
-def _normalizar_horario(texto):
-    """Tenta converter '10 e meia', '10 horas', '10:30', '10' para '10:00' ou '10:30'."""
-    texto = texto.lower().strip()
-    
-    # Converte "10 e meia" para "10:30"
-    texto = re.sub(r'(\d+)\s*e\s*meia', r'\1:30', texto)
-    # Converte "10 e 30" para "10:30"
-    texto = re.sub(r'(\d+)\s*e\s*(\d+)', r'\1:\2', texto)
-    # Converte "10 horas" para "10:00"
-    texto = re.sub(r'(\d+)\s*horas?', r'\1:00', texto)
-    
-    # Encontra o padrão de hora (ex: "10:30" ou "10")
-    match = re.search(r'(\d{1,2})(:(\d{2}))?', texto)
-    if not match:
-        return None
-
-    hora = int(match.group(1))
-    minutos_str = match.group(3)
-    
-    minutos = 0
-    if minutos_str:
-        minutos = int(minutos_str)
-    
-    # Arredonda os minutos para 00 ou 30 (ex: 10:05 -> 10:00, 10:40 -> 10:30)
-    if minutos < 15:
-        minutos = 0
-    elif minutos >= 15 and minutos < 45:
-        minutos = 30
-    else: # se for > 45, arredonda para a próxima hora
-        minutos = 0
-        hora += 1
-        
-    # Validação final da hora
-    if hora < 8 or hora > 22: # (Ajuste se necessário)
-        return None 
-
-    return f"{hora:02d}:{minutos:02d}"
-
 def parsear_comando(texto):
-    texto_original = texto
+    """
+    Tenta extrair nome, horário e barbeiro de uma string de texto.
+    """
+    texto = texto.lower()
+    
+    # A variável 'barbeiros' está definida no escopo global do seu script
+    barbeiros_nomes = [b.lower() for b in barbeiros] 
+    
+    nome_cliente = None
+    horario = None
     barbeiro = None
-    horario_normalizado = None
 
-    # --- ETAPA DE NORMALIZAÇÃO PRÉVIA ---
-    # Remove acentos do texto de entrada para facilitar o match
-    texto_sem_acento = texto
-    if isinstance(texto, str):
-        try:
-            # Tenta normalizar, se falhar, usa o original
-            texto_sem_acento = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
-        except:
-            pass # Mantém o texto original se a normalização falhar
+    # 1. Encontrar Barbeiro
+    for b_nome in barbeiros_nomes:
+        if b_nome in texto:
+            barbeiro = "Lucas Borges" if "lucas" in b_nome else "Aluizio"
+            texto = texto.replace(b_nome, "") # Remove o nome do barbeiro
+            break
     
-    # 1. Encontrar o Barbeiro (com RegEx "Fuzzy")
-    # Usamos o texto_sem_acento e re.IGNORECASE para máxima flexibilidade
-    
-    # Procura por "lucas borges" OU "lucas"
-    if re.search(r'lucas\s*borges|lucas', texto_sem_acento, re.IGNORECASE):
-        barbeiro = "Lucas Borges"
-        # Remove a(s) palavra(s) que encontrou (do texto original)
-        texto = re.sub(r'lucas\s*borges|lucas', '', texto, flags=re.IGNORECASE)
+    # 2. Encontrar Horário (Ex: "10 horas", "10 e 30", "14:00")
+    match = re.search(r'(\d{1,2})[ :h]*(?:e |:)*(\d{2})?', texto)
+    if match:
+        hora = int(match.group(1))
+        minuto_str = match.group(2)
         
-    # ESTA É A LINHA QUE APANHA O "ALUIZIO" (agora no texto_sem_acento):
-    # Procura por "Aluisio", "Aloisio" ou "Alu"
-    elif re.search(r'aluisio|aloisio|alu', texto_sem_acento, re.IGNORECASE):
-        barbeiro = "Aluizio"
-        # Remove a(s) palavra(s) que encontrou (do texto original)
-        texto = re.sub(r'alu[ií]sio|alo[ií]sio|alu', '', texto, flags=re.IGNORECASE)
+        minuto = 0
+        if minuto_str and minuto_str == "30":
+            minuto = 30
+        elif "meia" in texto:
+            minuto = 30
+            
+        horario = f"{hora:02d}:{minuto:02d}"
+        
+        # Remove o horário do texto
+        texto = re.sub(r'(\d{1,2})[ :h]*(?:e |:)*(\d{2})?', '', texto)
+        texto = texto.replace("meia", "").replace("horas", "").replace("às", "")
+
+    # 3. O que sobrou (idealmente) é o nome do cliente
+    texto = texto.replace("com", "").replace("para", "").replace(" o ", " ").strip()
     
-    else:
-        return None # Barbeiro é obrigatório
+    if texto:
+        nome_cliente = texto.strip().title()
 
-    # 2. Encontrar o Horário (A sua lógica de _normalizar_horario era melhor, vamos usá-la)
-    match_horario = re.search(r'(?:às|para\s*às|pelas)?\s*([\d\s:e]+(?:meia|horas?)?)', texto, re.IGNORECASE)
-    if match_horario:
-        horario_str = match_horario.group(1)
-        horario_normalizado = _normalizar_horario(horario_str) # <-- Esta é a sua função 'def _normalizar_horario()'
-        if horario_normalizado:
-            texto = texto.replace(match_horario.group(0), '')
-        else:
-            return None 
-    else:
-        return None 
-
-    # 3. O que sobrar é o Nome do Cliente
-    texto = re.sub(r'\s*(com|para|o|a)\s*', ' ', texto, flags=re.IGNORECASE)
-    nome_cliente = texto.strip()
+    # 4. Verifica se achou tudo
+    if nome_cliente and horario and barbeiro:
+        return {"nome": nome_cliente, "horario": horario, "barbeiro": barbeiro}
     
-    if not nome_cliente or not horario_normalizado or not barbeiro:
-        print(f"Parse falhou: N={nome_cliente}, H={horario_normalizado}, B={barbeiro}")
-        return None
-
-    return {
-        'nome': nome_cliente.title(),
-        'horario': horario_normalizado,
-        'barbeiro': barbeiro
-    }
-
+    return None # Falha no parse
 # --- INICIALIZAÇÃO DO ESTADO DA SESSÃO ---
 if 'view' not in st.session_state:
     st.session_state.view = 'main' # 'main', 'agendar', 'cancelar'
@@ -985,6 +936,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
