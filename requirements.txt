@@ -4,6 +4,7 @@ pandas
 google-cloud-firestore
 sib-api-v3-sdk
 pillow
-speech-to-text
+streamlit-speech-to-text
+
 
 
