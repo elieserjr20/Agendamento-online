@@ -9,8 +9,7 @@ import json
 from PIL import Image
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
-# ADICIONE ESTA LINHA
-import streamlit.components.v1 as components
+import re
 
 
 # --- DEFINIÇÃO DE CAMINHOS SEGUROS (PARA O FAVICON) ---
@@ -1031,6 +1030,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
