@@ -9,6 +9,9 @@ import json
 from PIL import Image
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
+from streamlit_audiorecorder import audiorecorder
+import speech_recognition as sr
+import re
 
 # --- DEFINIÇÃO DE CAMINHOS SEGUROS (PARA O FAVICON) ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -750,6 +753,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
