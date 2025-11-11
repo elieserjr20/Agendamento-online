@@ -479,9 +479,6 @@ if 'view' not in st.session_state:
     st.session_state.view = 'main' # 'main', 'agendar', 'cancelar'
     st.session_state.selected_data = None
     st.session_state.agendamento_info = {}
-params = st.query_params
-if params.get('modo') == 'voz':
-    st.session_state.view = 'voz'
 
 # --- LÓGICA DE NAVEGAÇÃO E EXIBIÇÃO (MODAIS) ---
 
@@ -695,35 +692,6 @@ elif st.session_state.view == 'fechar':
         if btn_cols[1].button("⬅️ Voltar", use_container_width=True):
             st.session_state.view = 'main' # <-- Corrigido para 'agenda'
             st.rerun()
-            
-elif st.session_state.view == 'voz':
-    st.title("🎙️ Agendamento Rápido por Voz")
-    st.subheader("Fale o nome, horário e barbeiro (para hoje)")
-    
-    cols_logo_voz = st.columns([1, 1, 1])
-    with cols_logo_voz[1]:
-        st.image("https://i.imgur.com/XVOXz8F.png", width=250)
-
-    st.markdown("---")
-    
-    # Adiciona o componente de gravação
-    audio_bytes = st_audiorec(icon_size="2x")
-    
-    if audio_bytes:
-        # Chama a função de processamento
-        if handle_voice_submission(audio_bytes):
-            # Se deu certo, espera 2s e volta para a agenda
-            time.sleep(2)
-            st.query_params.clear() # Limpa o "?modo=voz"
-            st.session_state.view = 'main'
-            st.rerun()
-            
-    st.markdown("---")
-    # Botão para voltar para a agenda completa
-    if st.button("⬅️ Voltar para a Agenda Completa"):
-        st.query_params.clear()
-        st.session_state.view = 'main'
-        st.rerun()
             
 # --- TELA PRINCIPAL (GRID DE AGENDAMENTOS) ---
 else:
@@ -981,6 +949,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
