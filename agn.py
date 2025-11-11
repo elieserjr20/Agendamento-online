@@ -10,7 +10,7 @@ from PIL import Image
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 import re
-
+import unicodedata
 
 # --- DEFINIÇÃO DE CAMINHOS SEGUROS (PARA O FAVICON) ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -363,54 +363,64 @@ def desbloquear_horario_especifico(data_obj, horario, barbeiro):
         return False
         
 def parsear_comando(texto):
-    """
-    Tenta extrair nome, horário e barbeiro de uma string de texto.
-    """
-    texto = texto.lower()
-    
-    # A variável 'barbeiros' está definida no escopo global do seu script
-    barbeiros_nomes = [b.lower() for b in barbeiros] 
-    
-    nome_cliente = None
-    horario = None
+    texto_original = texto
     barbeiro = None
+    horario_normalizado = None
 
-    # 1. Encontrar Barbeiro
-    for b_nome in barbeiros_nomes:
-        if b_nome in texto:
-            barbeiro = "Lucas Borges" if "lucas" in b_nome else "Aluizio"
-            texto = texto.replace(b_nome, "") # Remove o nome do barbeiro
-            break
+    # --- ETAPA DE NORMALIZAÇÃO PRÉVIA ---
+    # Remove acentos do texto de entrada para facilitar o match
+    texto_sem_acento = texto
+    if isinstance(texto, str):
+        try:
+            # Tenta normalizar, se falhar, usa o original
+            texto_sem_acento = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
+        except:
+            pass # Mantém o texto original se a normalização falhar
     
-    # 2. Encontrar Horário (Ex: "10 horas", "10 e 30", "14:00")
-    match = re.search(r'(\d{1,2})[ :h]*(?:e |:)*(\d{2})?', texto)
-    if match:
-        hora = int(match.group(1))
-        minuto_str = match.group(2)
+    # 1. Encontrar o Barbeiro (com RegEx "Fuzzy")
+    # Usamos o texto_sem_acento e re.IGNORECASE para máxima flexibilidade
+    
+    # Procura por "lucas borges" OU "lucas"
+    if re.search(r'lucas\s*borges|lucas', texto_sem_acento, re.IGNORECASE):
+        barbeiro = "Lucas Borges"
+        # Remove a(s) palavra(s) que encontrou (do texto original)
+        texto = re.sub(r'lucas\s*borges|lucas', '', texto, flags=re.IGNORECASE)
         
-        minuto = 0
-        if minuto_str and minuto_str == "30":
-            minuto = 30
-        elif "meia" in texto:
-            minuto = 30
-            
-        horario = f"{hora:02d}:{minuto:02d}"
-        
-        # Remove o horário do texto
-        texto = re.sub(r'(\d{1,2})[ :h]*(?:e |:)*(\d{2})?', '', texto)
-        texto = texto.replace("meia", "").replace("horas", "").replace("às", "")
-
-    # 3. O que sobrou (idealmente) é o nome do cliente
-    texto = texto.replace("com", "").replace("para", "").replace(" o ", " ").strip()
+    # ESTA É A LINHA QUE APANHA O "ALUIZIO" (agora no texto_sem_acento):
+    # Procura por "Aluisio", "Aloisio" ou "Alu"
+    elif re.search(r'aluisio|aloisio|alu', texto_sem_acento, re.IGNORECASE):
+        barbeiro = "Aluizio"
+        # Remove a(s) palavra(s) que encontrou (do texto original)
+        texto = re.sub(r'alu[ií]sio|alo[ií]sio|alu', '', texto, flags=re.IGNORECASE)
     
-    if texto:
-        nome_cliente = texto.strip().title()
+    else:
+        return None # Barbeiro é obrigatório
 
-    # 4. Verifica se achou tudo
-    if nome_cliente and horario and barbeiro:
-        return {"nome": nome_cliente, "horario": horario, "barbeiro": barbeiro}
+    # 2. Encontrar o Horário (A sua lógica de _normalizar_horario era melhor, vamos usá-la)
+    match_horario = re.search(r'(?:às|para\s*às|pelas)?\s*([\d\s:e]+(?:meia|horas?)?)', texto, re.IGNORECASE)
+    if match_horario:
+        horario_str = match_horario.group(1)
+        horario_normalizado = _normalizar_horario(horario_str) # <-- Esta é a sua função 'def _normalizar_horario()'
+        if horario_normalizado:
+            texto = texto.replace(match_horario.group(0), '')
+        else:
+            return None 
+    else:
+        return None 
+
+    # 3. O que sobrar é o Nome do Cliente
+    texto = re.sub(r'\s*(com|para|o|a)\s*', ' ', texto, flags=re.IGNORECASE)
+    nome_cliente = texto.strip()
     
-    return None # Falha no parse
+    if not nome_cliente or not horario_normalizado or not barbeiro:
+        print(f"Parse falhou: N={nome_cliente}, H={horario_normalizado}, B={barbeiro}")
+        return None
+
+    return {
+        'nome': nome_cliente.title(),
+        'horario': horario_normalizado,
+        'barbeiro': barbeiro
+    }
 
 # --- INICIALIZAÇÃO DO ESTADO DA SESSÃO ---
 if 'view' not in st.session_state:
@@ -937,6 +947,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
