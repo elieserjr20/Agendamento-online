@@ -414,11 +414,14 @@ def parsear_comando(texto):
     return None # Falha no parse
 
 
+# SUBSTITUA A SUA FUNÇÃO 'componente_fala_para_texto' (Linha 491) POR ESTA:
+#
 def componente_fala_para_texto():
     """
     Cria um componente HTML/JS que usa a Web Speech API.
-    *** VERSÃO 4 (O "HACK" CORRIGIDO): ***
-    Recarrega o PRÓPRIO IFRAME (window.location), não o 'parent'.
+    *** VERSÃO NATIVA (A CORRETA) ***
+    Usa Streamlit.setComponentValue para enviar o texto para o Python,
+    o que (corretamente) aciona o st.rerun().
     """
     
     # HTML e JavaScript para o botão
@@ -435,7 +438,7 @@ def componente_fala_para_texto():
     </style>
     
     <button id="speechButton">🎙️ Clique para Agendar por Voz</button>
-    <div id="speechStatus">Clique no botão e fale (ex: "Cliente às 10 com Lucas Borges")</div>
+    <div id="speechStatus">Clique no botão e fale (ex: "Júnior às 10 com Lucas")</div>
 
     <script>
         const button = document.getElementById('speechButton');
@@ -453,19 +456,18 @@ def componente_fala_para_texto():
             recognition.interimResults = false;
             recognition.maxAlternatives = 1;
 
-            // --- ESTA É A CORREÇÃO FINAL ---
+            // --- ESTA É A "PONTE" CORRETA ---
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 status.innerHTML = `Você disse: "<i>${transcript}</i>"`;
                 
-                // Pega a URL ATUAL (do iframe) e remove params antigos
-                const currentUrl = window.location.href.split('?')[0];
-                
-                // Recarrega o PRÓPRIO iframe com o novo param
-                window.location.href = currentUrl + "?voz=" + encodeURIComponent(transcript);
+                // Envia o texto de volta para o Python.
+                // Isto vai acionar o "rerun" que você mencionou.
+                Streamlit.setComponentValue(transcript);
             };
             // --- FIM DA CORREÇÃO ---
 
+            // (O resto dos 'handlers' de JS)
             recognition.onspeechend = () => {
                 recognition.stop();
                 status.innerHTML = "Processando...";
@@ -496,8 +498,13 @@ def componente_fala_para_texto():
     </script>
     """
     
-    # Apenas "desenha" o componente. Não tem 'key' e não retorna valor.
-    components.html(html_code, height=150)
+    # Apenas "desenha" o componente. Não tem 'key'.
+    # O valor de retorno (o texto) será 'None' na primeira vez,
+    # e o 'transcript' na segunda vez (após o rerun).
+    valor_retornado = components.html(html_code, height=150)
+    
+    # Devolve o valor que o Streamlit recebeu (None ou o texto)
+    return valor_retornado
 
 # --- INICIALIZAÇÃO DO ESTADO DA SESSÃO ---
 if 'view' not in st.session_state:
@@ -735,42 +742,39 @@ else:
         key="data_input"
     )
 
-    # --- INÍCIO DA LÓGICA CORRETA (URL HACK) ---
-    
-    # 1. LEIA O PARÂMETRO DA URL
-    params = st.query_params
-    texto_falado_da_url = params.get("voz")
-
-    # 2. Se um novo texto de voz veio da URL...
-    if texto_falado_da_url:
-        st.info(f"Comando recebido: \"{texto_falado_da_url}\"")
-        
-        # 3. Tenta traduzir o comando
-        dados = parsear_comando(texto_falado_da_url)
-        
-        if dados:
-            # 4. SUCESSO! Armazena os dados na sessão para confirmação
-            st.session_state.dados_voz = {
-                'nome': dados['nome'],
-                'horario': dados['horario'],
-                'barbeiro': dados['barbeiro'],
-                'data_obj': datetime.today().date()
-            }
-        else:
-            # 5. FALHA.
-            st.session_state.dados_voz = None
-            st.error("Não entendi o comando. Tente falar 'Nome às XX horas com Barbeiro'.")
-        
-        # 6. LIMPE O PARÂMETRO DA URL
-        st.query_params.clear()
-
-    # O EXPANDER AGORA SÓ DESENHA O BOTÃO E MOSTRA A CONFIRMAÇÃO
+    # O EXPANDER AGORA CONTÉM TODA A LÓGICA (COMO DEVIA SER)
     with st.expander("🎙️ Agendamento Rápido por Voz (para Hoje)", expanded=True):
         
         # --- ETAPA 1: OUVIR ---
-        # Apenas "desenha" o botão.
-        componente_fala_para_texto() 
+        # 1. Chama o componente. Na primeira vez, 'texto_falado' é None.
+        #    Depois de falar, a ponte (setComponentValue) faz o rerun,
+        #    e 'texto_falado' agora terá o texto.
+        texto_falado = componente_fala_para_texto()
         
+        # 2. Se um NOVO comando de voz foi recebido...
+        if isinstance(texto_falado, str) and texto_falado:
+            st.info(f"Comando recebido: \"{texto_falado}\"")
+            
+            # 3. Tenta traduzir o comando
+            dados = parsear_comando(texto_falado)
+            
+            if dados:
+                # 4. SUCESSO! Armazena os dados na sessão para confirmação
+                st.session_state.dados_voz = {
+                    'nome': dados['nome'],
+                    'horario': dados['horario'],
+                    'barbeiro': dados['barbeiro'],
+                    'data_obj': datetime.today().date()
+                }
+            else:
+                # 5. FALHA.
+                st.session_state.dados_voz = None
+                st.error("Não entendi o comando. Tente falar 'Nome às XX horas com Barbeiro'.")
+            
+            # Limpa o valor do componente para evitar re-processar
+            # (Isto é opcional, mas boa prática)
+            st.rerun()
+
         # --- ETAPA 2: CONFIRMAR ---
         # Esta lógica lê o st.session_state.dados_voz (preenchido acima)
         if st.session_state.dados_voz:
@@ -1016,6 +1020,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
