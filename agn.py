@@ -660,7 +660,7 @@ else:
             texto_falado = st.text_input(
                 "Comando de Voz:", 
                 key="voz_text_input", 
-                placeholder="Ex: Júnior às 10 com Lucas"
+                placeholder="Ex: Cliente 10 horas Lucas Borges"
             )
             
             # O "estímulo" agora é um botão de Python normal!
@@ -936,6 +936,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
