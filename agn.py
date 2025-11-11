@@ -534,6 +534,8 @@ if 'view' not in st.session_state:
     st.session_state.selected_data = None
     st.session_state.agendamento_info = {}
 
+if 'dados_voz' not in st.session_state:
+    st.session_state.dados_voz = None
 # --- LÓGICA DE NAVEGAÇÃO E EXIBIÇÃO (MODAIS) ---
 
 # ---- MODAL DE AGENDAMENTO ----
@@ -765,65 +767,102 @@ else:
     #
     # BLOCO DE VOZ COM A INDENTAÇÃO CORRIGIDA
     #
-    with st.expander("🎙️ Agendamento Rápido por Voz (para Hoje)", expanded=False):
+    #
+    # SUBSTITUA TODO O SEU 'with st.expander(...)' POR ESTE BLOCO
+    #
+    with st.expander("🎙️ Agendamento Rápido por Voz (para Hoje)", expanded=True):
         
-        # 1. Chama o nosso novo componente. Ele retorna o TEXTO.
-        # (Esta linha está DENTRO do 'with')
+        # --- ETAPA 1: OUVIR ---
+        
+        # 1. Chama o componente de voz
         texto_falado = componente_fala_para_texto()
         
-        # 2. Se o componente retornou um texto...
-        
-        # --- ESTA É A LINHA QUE CORRIGIMOS ---
-        # (Verifica se é uma 'string' antes de usar, para evitar o erro .lower())
+        # 2. Se um NOVO comando de voz foi recebido...
         if isinstance(texto_falado, str) and texto_falado:
-            
-            # (O 'if' acima substituiu o 'if texto_falado:' antigo)
-            
             st.info(f"Comando recebido: \"{texto_falado}\"")
             
-            # 3. Pula direto para o "Tradutor" (parsear_comando)
-            # Não precisamos mais do handle_voice_submission!
+            # 3. Tenta traduzir o comando
             dados = parsear_comando(texto_falado)
             
             if dados:
-                nome = dados['nome']
-                horario = dados['horario']
-                barbeiro_voz = dados['barbeiro']
-                data_obj_hoje = datetime.today().date()
-
-                # 4. Chama a função de verificação (a que corrigimos lá no começo)
-                disponibilidade = verificar_disponibilidade_especifica(data_obj_hoje, horario, barbeiro_voz)
-
-                # 5. Lógica de agendamento (que já estava correta)
-                if disponibilidade['status'] == 'disponivel':
-                    if salvar_agendamento(data_obj_hoje, horario, nome, "INTERNO (Voz)", ["(Voz)"], barbeiro_voz):
-                        st.success(f"Agendado! {nome} às {horario} com {barbeiro_voz}.")
-                        st.balloons()
-                        
-                        data_str_display = data_obj_hoje.strftime('%d/%m/%Y')
-                        assunto_email = f"Novo Agendamento (VOZ): {nome} em {data_str_display}"
-                        mensagem_email = (
-                            f"Agendamento rápido por VOZ:\n\nCliente: {nome}\nData: {data_str_display}\n"
-                            f"Horário: {horario}\nBarbeiro: {barbeiro_voz}"
-                        )
-                        enviar_email(assunto_email, mensagem_email)
-                        
-                        st.cache_data.clear()
-                        time.sleep(2)
-                        st.rerun()
-                    else:
-                        st.error("Falha inesperada ao salvar no banco de dados.")
-                
-                elif disponibilidade['status'] in ['ocupado', 'almoco', 'fechado']:
-                    cliente_existente = disponibilidade.get('cliente', 'um compromisso')
-                    st.error(f"❌ HORÁRIO BLOQUEADO! O horário das {horario} com {barbeiro_voz} já está ocupado por {cliente_existente}.")
-                
-                else:
-                    st.error("Erro desconhecido ao verificar disponibilidade do horário.")
-                    
+                # 4. SUCESSO! Armazena os dados na sessão para confirmação
+                st.session_state.dados_voz = {
+                    'nome': dados['nome'],
+                    'horario': dados['horario'],
+                    'barbeiro': dados['barbeiro'],
+                    'data_obj': datetime.today().date() # Já armazena a data de hoje
+                }
             else:
+                # 5. FALHA. Limpa os dados antigos e avisa o usuário
+                st.session_state.dados_voz = None
                 st.error("Não entendi o comando. Tente falar 'Nome às XX horas com Barbeiro'.")
 
+        # --- ETAPA 2: CONFIRMAR ---
+        
+        # 6. Verifica se há dados na sessão esperando por confirmação
+        if st.session_state.dados_voz:
+            try:
+                # Pega os dados da sessão
+                dados_para_confirmar = st.session_state.dados_voz
+                nome = dados_para_confirmar['nome']
+                horario = dados_para_confirmar['horario']
+                barbeiro = dados_para_confirmar['barbeiro']
+                data_obj = dados_para_confirmar['data_obj']
+
+                st.markdown("---")
+                st.subheader("Confirmar Agendamento por Voz?")
+                # Mostra os dados de forma clara
+                st.write(f"**Cliente:** `{nome}`")
+                st.write(f"**Horário:** `{horario}`")
+                st.write(f"**Barbeiro:** `{barbeiro}`")
+                
+                col_confirm, col_cancel = st.columns(2)
+                
+                # 7. BOTÃO DE CONFIRMAR
+                if col_confirm.button("✅ Confirmar Agendamento", key="btn_confirm_voz", type="primary", use_container_width=True):
+                    
+                    # Roda a lógica de verificação SÓ AGORA (ao clicar)
+                    disponibilidade = verificar_disponibilidade_especifica(data_obj, horario, barbeiro)
+
+                    if disponibilidade['status'] == 'disponivel':
+                        with st.spinner("Agendando..."):
+                            # Roda a lógica de SALVAR
+                            if salvar_agendamento(data_obj, horario, nome, "INTERNO (Voz)", ["(Voz)"], barbeiro):
+                                st.success(f"Agendado! {nome} às {horario} com {barbeiro}.")
+                                st.balloons()
+                                
+                                # Lógica de e-mail
+                                data_str_display = data_obj.strftime('%d/%m/%Y')
+                                assunto_email = f"Novo Agendamento (VOZ): {nome} em {data_str_display}"
+                                mensagem_email = (f"Agendamento rápido por VOZ:\n\nCliente: {nome}\nData: {data_str_display}\n"
+                                                  f"Horário: {horario}\nBarbeiro: {barbeiro}")
+                                enviar_email(assunto_email, mensagem_email)
+                                
+                                st.cache_data.clear()
+                                st.session_state.dados_voz = None # Limpa a sessão
+                                time.sleep(2)
+                                st.rerun()
+                            else:
+                                st.error("Falha inesperada ao salvar no banco de dados.")
+                    
+                    elif disponibilidade['status'] in ['ocupado', 'almoco', 'fechado']:
+                        cliente_existente = disponibilidade.get('cliente', 'um compromisso')
+                        st.error(f"❌ HORÁRIO BLOQUEADO! O horário das {horario} com {barbeiro} já está ocupado por {cliente_existente}.")
+                        st.session_state.dados_voz = None # Limpa a sessão para tentar de novo
+                    
+                    else:
+                        st.error("Erro desconhecido ao verificar disponibilidade.")
+                        st.session_state.dados_voz = None
+
+                # 8. BOTÃO DE CANCELAR
+                if col_cancel.button("❌ Cancelar", key="btn_cancel_voz", use_container_width=True):
+                    st.session_state.dados_voz = None # Apenas limpa a sessão
+                    st.rerun()
+
+            except KeyError:
+                # Segurança: se os dados na sessão estiverem corrompidos
+                st.error("Erro nos dados da sessão. Por favor, fale novamente.")
+                st.session_state.dados_voz = None
 # (Aqui continua o resto do seu código, como 'st.markdown("---")', etc.)
 
     # Usamos 'data_selecionada' como o nosso objeto de data principal
@@ -1010,6 +1049,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
