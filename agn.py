@@ -9,7 +9,8 @@ import json
 from PIL import Image
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
-from streamlit_audiorecorder import audiorecorder
+from st_audiorec import st_audiorec
+import io
 import speech_recognition as sr
 import re
 
@@ -383,11 +384,11 @@ def parsear_comando(texto):
         return {"nome": nome_cliente, "horario": horario, "barbeiro": barbeiro}
     
     return None # Falha no parse
-
+    
 def handle_voice_submission(audio_bytes):
     """
-    Função reutilizável para processar o áudio, transcrever, 
-    verificar disponibilidade E TENTAR salvar o agendamento.
+    Função reutilizável para processar o áudio (da st_audiorec), 
+    transcrever, verificar disponibilidade E TENTAR salvar o agendamento.
     Retorna True se sucesso, False se falha.
     """
     if not audio_bytes:
@@ -396,13 +397,14 @@ def handle_voice_submission(audio_bytes):
     st.info("Processando áudio...")
     
     try:
-        # 1. Salva como WAV temporário
-        with open("audio.wav", "wb") as f:
-            f.write(audio_bytes)
+        # 1. MUDANÇA AQUI: Não salva mais em disco.
+        # Usa io.BytesIO para tratar os bytes de áudio como um arquivo na memória.
+        wav_file = io.BytesIO(audio_bytes)
 
         # 2. Tenta transcrever o áudio
         r = sr.Recognizer()
-        with sr.AudioFile("audio.wav") as source:
+        # Usa o arquivo em memória
+        with sr.AudioFile(wav_file) as source:
             audio_data = r.record(source)
             
         try:
@@ -427,7 +429,7 @@ def handle_voice_submission(audio_bytes):
                         st.success(f"Agendado! {nome} às {horario} com {barbeiro_voz}.")
                         st.balloons()
                         
-                        # Enviar e-mail de notificação
+                        # (O resto da sua lógica de e-mail...)
                         data_str_display = data_obj_hoje.strftime('%d/%m/%Y')
                         assunto_email = f"Novo Agendamento (VOZ): {nome} em {data_str_display}"
                         mensagem_email = (
@@ -442,12 +444,9 @@ def handle_voice_submission(audio_bytes):
                         st.error("Falha inesperada ao salvar no banco de dados.")
                 
                 elif disponibilidade['status'] in ['ocupado', 'almoco', 'fechado']:
-                    # 5. Bloqueia o agendamento se o status não for 'disponivel'
                     cliente_existente = disponibilidade.get('cliente', 'um compromisso')
-                    
                     if cliente_existente == "FECHADO (Lote)": cliente_existente = "fechado por você"
                     elif cliente_existente == "ALMOÇO": cliente_existente = "o almoço"
-                    
                     st.error(f"❌ HORÁRIO BLOQUEADO! O horário das {horario} com {barbeiro_voz} já está ocupado por {cliente_existente}.")
                 
                 else:
@@ -465,6 +464,8 @@ def handle_voice_submission(audio_bytes):
         st.error(f"Erro crítico no processamento de áudio: {e}")
         
     return False # Falha (default)
+
+
 
 # --- INICIALIZAÇÃO DO ESTADO DA SESSÃO ---
 if 'view' not in st.session_state:
@@ -699,12 +700,7 @@ elif st.session_state.view == 'voz':
     st.markdown("---")
     
     # Adiciona o componente de gravação
-    audio_bytes = audiorecorder(
-        "Clique para falar", 
-        "Gravando... (fale nome, horário e barbeiro)",
-        "Gravado! Processando...",
-        key="rec_atalho"
-    )
+    audio_bytes = st_audiorec(icon_size="2x")
     
     if audio_bytes:
         # Chama a função de processamento
@@ -738,12 +734,7 @@ else:
     )
 
     with st.expander("🎙️ Agendamento Rápido por Voz (para Hoje)"):
-        audio_bytes_main = audiorecorder(
-            "Clique para falar", 
-            "Gravando...", 
-            "Processando...", 
-            key="rec_main"
-        )
+        audio_bytes_main = st_audiorec(key="rec_main", icon_size="2x")
         if audio_bytes_main:
             # Reutiliza a mesma função de processamento
             if handle_voice_submission(audio_bytes_main):
@@ -935,6 +926,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
