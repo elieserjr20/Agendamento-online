@@ -650,21 +650,25 @@ else:
         <script>
             setTimeout(function() {
                 try {
-                    // 1. Encontra a barra de chat (que "rouba" o foco)
-                    // (Temos de procurar no 'window.parent' por causa do iframe do Streamlit)
-                    var chatInput = window.parent.document.querySelector('textarea[data-testid="chatInput"]');
+                    // 1. Tenta focar no elemento H1 (o st.title)
+                    // (Usamos o window.parent para "escapar" o iframe do componente)
+                    var titleElement = window.parent.document.querySelector('h1');
                     
-                    if (chatInput) {
-                        // 2. Tira o foco dela
-                        chatInput.blur();
+                    if (titleElement) {
+                        // "Rouba" o foco para o título
+                        titleElement.focus();
+                    } else {
+                        // Se falhar, foca no "corpo" da página
+                        window.parent.document.body.focus();
                     }
                 } catch (e) {
-                    // Ignora erros (caso o elemento não exista ou esteja em outro iframe)
+                    // Ignora erros de permissão de iframe (se houver)
                 }
                 
-                // 3. Força o scroll para o topo
+                // 2. Força o scroll para o topo (DE NOVO)
                 window.scrollTo(0, 0);
-            }, 50); // Aumentamos o tempo para 50ms (mais seguro)
+                
+            }, 100); // Aumentamos o tempo para 100ms (desespero)
         </script>
         """,
         height=0 # Invisível
@@ -928,6 +932,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
