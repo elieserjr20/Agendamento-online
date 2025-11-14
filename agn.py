@@ -11,6 +11,7 @@ import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 import re
 import unicodedata
+import streamlit.components.v1 as components
 
 # --- DEFINIÇÃO DE CAMINHOS SEGUROS (PARA O FAVICON) ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -644,6 +645,17 @@ elif st.session_state.view == 'fechar':
             
 # --- TELA PRINCIPAL (GRID DE AGENDAMENTOS) ---
 else:
+    components.html(
+        """
+        <script>
+            setTimeout(function() {
+                window.scrollTo(0, 0);
+            }, 10);
+        </script>
+        """,
+        height=0 # O componente é invisível
+    )
+    
     st.title("Barbearia Lucas Borges - Agendamentos Internos")
     # Centraliza a logo
     cols_logo = st.columns([1, 2, 1])
@@ -902,6 +914,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
