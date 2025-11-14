@@ -350,6 +350,18 @@ def desbloquear_horario_especifico(data_obj, horario, barbeiro):
         st.error(f"Erro ao tentar desbloquear horário: {e}")
         return False
         
+def remover_acentos(s):
+    """
+    Remove acentos de uma string, convertendo-a para uma forma 
+    normalizada e removendo caracteres 'non-spacing mark'.
+    (Usa o módulo 'unicodedata' já importado no topo do ficheiro)
+    """
+    if not isinstance(s, str):
+        s = str(s)
+        
+    nfkd_form = unicodedata.normalize('NFD', s)
+    return "".join([c for c in nfkd_form if unicodedata.category(c) != 'Mn'])
+    
 # --- O "DEF PERARDO 2.0" (O TRADUTOR DE TEXTO) ---
 # --- (Esta é a sua função, que começa na linha 92) ---
 def parsear_comando(comando):
@@ -1021,6 +1033,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
