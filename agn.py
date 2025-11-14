@@ -383,7 +383,7 @@ def parsear_comando(comando):
     # --- FIM DO IMPLANTE ---
 
     # Lista de barbeiros conhecidos (normalizada)
-    barbeiros_conhecidos = [remover_acentos(b.lower()) for b in BARBEIROS]
+    barbeiros_conhecidos = [remover_acentos(b.lower()) for b in barbeiros]
 
     # --- TENTATIVA 1: Regex Padrão (Nome às HH:MM com Barbeiro) ---
     padrao_completo = re.compile(r"(.+?)\s+(?:as|às|a|no|na)\s+(\d{1,2}:\d{2})\s+(?:com|como|cm|c|co)\s+(.+)", re.IGNORECASE)
@@ -1033,6 +1033,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
