@@ -377,9 +377,8 @@ def parsear_comando(comando):
     # 2. Cura o "Bug do Aloísio" (Erro de Ortografia)
     # (Transforma a "voz" (Aloísio) no "código" (Aluizio))
     comando_normalizado = comando_normalizado.replace("aloisio", "aluizio")
-    comando_normalizado = comando_normalizado.replace("aloísio", "aluizio") # (Garantia)
-    comando_normalizado = comando_normalizado.replace("alu", "aluizio") # (Garante o "Alu")
-    
+    comando_normalizado = comando_normalizado.replace("aloísio", "aluizio")
+    comando_normalizado = re.sub(r'\balu\b', 'aluizio', comando_normalizado)
     # --- FIM DO IMPLANTE ---
 
     # Lista de barbeiros conhecidos (normalizada)
@@ -790,7 +789,7 @@ else:
 
     # --- PLANO D 2.0 (A "Melhor Experiência" com Microfone do Teclado) ---
     # Esta barra de chat fica "colada" no rodapé da página.
-    prompt = st.chat_input("Diga seu comando (Ex: Cliente às 10 com Lucas Borge)")
+    prompt = st.chat_input("Diga seu comando (Ex: Cliente às 10 com Lucas Borges)")
 
     if prompt:
         # O 'prompt' é o texto que o utilizador enviou (falado ou digitado)
@@ -1033,6 +1032,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
