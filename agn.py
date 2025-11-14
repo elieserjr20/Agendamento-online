@@ -33,37 +33,6 @@ st.set_page_config(
     layout="wide" # ou "wide", como preferir
 )
 
-components.html(
-    """
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            setTimeout(function() {
-                try {
-                    // Cria (ou localiza) um elemento oculto no topo para roubar o foco
-                    let topo = window.parent.document.getElementById("fixar-topo");
-                    if (!topo) {
-                        topo = window.parent.document.createElement("div");
-                        topo.id = "fixar-topo";
-                        topo.tabIndex = -1;
-                        topo.style.position = "absolute";
-                        topo.style.top = "0px";
-                        topo.style.left = "0px";
-                        topo.style.width = "1px";
-                        topo.style.height = "1px";
-                        topo.style.opacity = "0";
-                        window.parent.document.body.prepend(topo);
-                    }
-
-                    topo.focus();  // força o foco no topo
-                    window.parent.scrollTo(0, 0);  // garante o scroll no topo
-                } catch (e) {}
-            }, 800); // 800ms = tempo necessário para st.chat_input renderizar
-        });
-    </script>
-    """,
-    height=0
-)
-
 
 
 # CSS customizado para colorir os botões da tabela e centralizar o texto
@@ -678,6 +647,53 @@ elif st.session_state.view == 'fechar':
             
 # --- TELA PRINCIPAL (GRID DE AGENDAMENTOS) ---
 else:
+    components.html(
+        """
+        <style>
+            /* 1. O Estilo do Botão "Flutuante" (O "Pintor") */
+            #bttButton {
+                display: block; /* Garante que ele apareça */
+                position: fixed; /* "Flutua" sobre a página */
+                bottom: 80px;    /* 80px acima do fundo (para não ficar em cima do chat) */
+                right: 20px;     /* No canto direito */
+                z-index: 9999;   /* Fica EM CIMA de tudo */
+                
+                /* Aparência */
+                font-size: 24px;
+                border: none;
+                outline: none;
+                background-color: #007bff; /* Azul (ou a cor que você quiser) */
+                color: white;
+                cursor: pointer;
+                padding: 10px;
+                border-radius: 50%; /* Redondo */
+                width: 50px;
+                height: 50px;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            }
+            
+            #bttButton:hover {
+                background-color: #0056b3; /* Azul mais escuro ao passar o mouse */
+            }
+        </style>
+
+        <button id="bttButton" title="Voltar ao Topo">🔝</button>
+
+        <script>
+            // 3. A Ação (O "Engenheiro")
+            var mybutton = document.getElementById("bttButton");
+            
+            // Quando o utilizador clica no botão, "sobe"
+            mybutton.onclick = function() {
+                // Tenta "escapar" o iFrame do Streamlit e o iFrame do seu PWA
+                // Esta é a forma mais "agressiva" de subir
+                window.parent.window.parent.scrollTo(0, 0); 
+            }
+        </script>
+        """,
+        height=0 # O componente HTML é "invisível", só o botão flutua
+    )
+    
     st.title("Barbearia Lucas Borges - Agendamentos Internos")
     # Centraliza a logo
     cols_logo = st.columns([1, 2, 1])
@@ -936,6 +952,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
