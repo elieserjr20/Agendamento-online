@@ -659,7 +659,7 @@ else:
 
     # --- PLANO D 2.0 (A "Melhor Experiência" com Microfone do Teclado) ---
     # Esta barra de chat fica "colada" no rodapé da página.
-    prompt = st.chat_input("Diga seu comando (Ex: Júnior às 10 com Lucas)")
+    prompt = st.chat_input("Diga seu comando (Ex: Cliente às 10 com Lucas)")
 
     if prompt:
         # O 'prompt' é o texto que o utilizador enviou (falado ou digitado)
@@ -902,6 +902,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
