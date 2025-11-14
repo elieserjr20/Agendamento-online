@@ -351,64 +351,153 @@ def desbloquear_horario_especifico(data_obj, horario, barbeiro):
         return False
         
 # --- O "DEF PERARDO 2.0" (O TRADUTOR DE TEXTO) ---
-def parsear_comando(texto):
-    barbeiro = None
-    horario = None
-    nome_cliente = None
-
-    texto_norm = texto
-    if isinstance(texto, str):
-        try:
-            # Remove acentos e põe em minúsculo
-            texto_norm = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
-            texto_norm = texto_norm.lower()
-        except:
-            texto_norm = texto.lower() # Fallback
-
-    # 1. Encontrar Barbeiro
-    if re.search(r'lucas\s*borges|lucas', texto_norm):
-        barbeiro = "Lucas Borges"
-        texto_norm = re.sub(r'lucas\s*borges|lucas', '', texto_norm, count=1)
-    elif re.search(r'aluisio|aloisio|alu', texto_norm):
-        barbeiro = "Aluizio"
-        texto_norm = re.sub(r'aluisio|aloisio|alu', '', texto_norm, count=1)
-    else:
-        return None # Barbeiro é obrigatório
-
-    # 2. Encontrar Horário (lógica autônoma)
-    # Procura por "10 e meia", "10e30", "10:30"
-    match_meia = re.search(r'(\d{1,2})\s*(?:e\s*meia|e\s*30|:30)', texto_norm)
+# --- (Esta é a sua função, que começa na linha 92) ---
+def parsear_comando(comando):
+    # Normalização (remover acentos e converter para minúsculas)
+    comando_normalizado = remover_acentos(comando.lower())
     
-    if match_meia: 
-        hora = int(match_meia.group(1))
-        minuto = 30
-        horario = f"{hora:02d}:{minuto:02d}"
-        # Remove o que encontrou
-        texto_norm = re.sub(r'(\d{1,2})\s*(?:e\s*meia|e\s*30|:30)', '', texto_norm, count=1)
-    else:
-        # Se não, procura por hora cheia: "10 horas", "10h", "10"
-        match_hora = re.search(r'(\d{1,2})', texto_norm)
+    # --- "IMPLANTE TRIPLO" (A CURA DOS 3 BUGS DE VOZ) ---
+    # (Adicionado na linha 95 - ANTES do Regex)
+    
+    # 1. Cura o "Bug do Juni r" (Erro do Microfone)
+    comando_normalizado = comando_normalizado.replace("juni r", "junior")
+    
+    # 2. Cura o "Bug do Aloísio" (Erro de Ortografia)
+    # (Transforma a "voz" (Aloísio) no "código" (Aluizio))
+    comando_normalizado = comando_normalizado.replace("aloisio", "aluizio")
+    comando_normalizado = comando_normalizado.replace("aloísio", "aluizio") # (Garantia)
+    comando_normalizado = comando_normalizado.replace("alu", "aluizio") # (Garante o "Alu")
+    
+    # --- FIM DO IMPLANTE ---
+
+    # Lista de barbeiros conhecidos (normalizada)
+    barbeiros_conhecidos = [remover_acentos(b.lower()) for b in BARBEIROS]
+
+    # --- TENTATIVA 1: Regex Padrão (Nome às HH:MM com Barbeiro) ---
+    padrao_completo = re.compile(r"(.+?)\s+(?:as|às|a|no|na)\s+(\d{1,2}:\d{2})\s+(?:com|como|cm|c|co)\s+(.+)", re.IGNORECASE)
+    match = padrao_completo.search(comando_normalizado)
+    if match:
+        nome_cliente = match.group(1).strip()
+        horario = match.group(2).strip()
+        nome_barbeiro = match.group(3).strip()
         
-        if match_hora:
-            hora = int(match_hora.group(1))
-            minuto = 0
-            horario = f"{hora:02d}:{minuto:02d}"
-            
-            # Remove a hora e palavras associadas
-            texto_norm = re.sub(r'(\d{1,2})\s*(?:horas|h|:00)?', '', texto_norm, count=1)
-            texto_norm = re.sub(r'\s*(as|pelas|para as)\s*', '', texto_norm) # Remove 'às'
-        else:
-            return None # Não achou horário
+        try:
+            horario_obj = datetime.strptime(horario, "%H:%M")
+            horario_formatado = horario_obj.strftime("%H:%M")
+        except ValueError:
+            return None 
 
-    # 3. O que sobrar é o Nome do Cliente
-    texto_norm = re.sub(r'\s*(com|para|o|a)\s*', ' ', texto_norm)
-    nome_cliente = texto_norm.strip().title()
-    
-    if not nome_cliente:
-        return None # Nome é obrigatório
+        # --- "IMPLANTE ANTI-O" (A CURA GERAL) ---
+        # (Cura o Bug 1 DEPOIS do Regex)
+        if nome_cliente.lower().startswith(('o ', 'a ', 'os ', 'as ')):
+            nome_cliente = nome_cliente.split(' ', 1)[1] 
+        if nome_barbeiro.lower().startswith(('o ', 'a ', 'os ', 'as ')):
+            nome_barbeiro = nome_barbeiro.split(' ', 1)[1]
+        # --- FIM DO IMPLANTE ---
 
-    # 4. Sucesso
-    return {'nome': nome_cliente, 'horario': horario, 'barbeiro': barbeiro}
+        if nome_barbeiro in barbeiros_conhecidos:
+            idx = barbeiros_conhecidos.index(nome_barbeiro)
+            nome_barbeiro_original = BARBEIROS[idx]
+            return {'nome': nome_cliente.title(), 'horário': horario_formatado, 'barbeiro': nome_barbeiro_original}
+
+    # --- TENTATIVA 2: Regex (Nome às HH com Barbeiro) ---
+    padrao_hora_cheia = re.compile(r"(.+?)\s+(?:as|às|a|no|na)\s+(\d{1,2})\s*(?:h|horas)?\s+(?:com|como|cm|c|co)\s+(.+)", re.IGNORECASE)
+    match = padrao_hora_cheia.search(comando_normalizado)
+    if match:
+        nome_cliente = match.group(1).strip()
+        horario = match.group(2).strip()
+        nome_barbeiro = match.group(3).strip()
+        
+        horario_formatado = f"{int(horario):02d}:00"
+
+        # --- "IMPLANTE ANTI-O" (A CURA GERAL) ---
+        if nome_cliente.lower().startswith(('o ', 'a ', 'os ', 'as ')):
+            nome_cliente = nome_cliente.split(' ', 1)[1] 
+        if nome_barbeiro.lower().startswith(('o ', 'a ', 'os ', 'as ')):
+            nome_barbeiro = nome_barbeiro.split(' ', 1)[1]
+        # --- FIM DO IMPLANTE ---
+        
+        if nome_barbeiro in barbeiros_conhecidos:
+            idx = barbeiros_conhecidos.index(nome_barbeiro)
+            nome_barbeiro_original = BARBEIROS[idx]
+            return {'nome': nome_cliente.title(), 'horário': horario_formatado, 'barbeiro': nome_barbeiro_original}
+
+    # --- TENTATIVA 3: Regex (Nome, Barbeiro às HH:MM) ---
+    padrao_barbeiro_antes = re.compile(r"(.+?)\s*,\s*(.+?)\s+(?:as|às|a|no|na)\s+(\d{1,2}:\d{2})", re.IGNORECASE)
+    match = padrao_barbeiro_antes.search(comando_normalizado)
+    if match:
+        nome_cliente = match.group(1).strip()
+        nome_barbeiro = match.group(2).strip()
+        horario = match.group(3).strip()
+
+        try:
+            horario_obj = datetime.strptime(horario, "%H:%M")
+            horario_formatado = horario_obj.strftime("%H:%M")
+        except ValueError:
+            return None
+
+        # --- "IMPLANTE ANTI-O" (A CURA GERAL) ---
+        if nome_cliente.lower().startswith(('o ', 'a ', 'os ', 'as ')):
+            nome_cliente = nome_cliente.split(' ', 1)[1] 
+        if nome_barbeiro.lower().startswith(('o ', 'a ', 'os ', 'as ')):
+            nome_barbeiro = nome_barbeiro.split(' ', 1)[1]
+        # --- FIM DO IMPLANTE ---
+
+        if nome_barbeiro in barbeiros_conhecidos:
+            idx = barbeiros_conhecidos.index(nome_barbeiro)
+            nome_barbeiro_original = BARBEIROS[idx]
+            return {'nome': nome_cliente.title(), 'horário': horario_formatado, 'barbeiro': nome_barbeiro_original}
+
+    # --- TENTATIVA 4: Regex (Nome, Barbeiro às HH) ---
+    padrao_barbeiro_antes_hora_cheia = re.compile(r"(.+?)\s*,\s*(.+?)\s+(?:as|às|a|no|na)\s+(\d{1,2})\s*(?:h|horas)?", re.IGNORECASE)
+    match = padrao_barbeiro_antes_hora_cheia.search(comando_normalizado)
+    if match:
+        nome_cliente = match.group(1).strip()
+        nome_barbeiro = match.group(2).strip()
+        horario = match.group(3).strip()
+        
+        horario_formatado = f"{int(horario):02d}:00"
+
+        # --- "IMPLANTE ANTI-O" (A CURA GERAL) ---
+        if nome_cliente.lower().startswith(('o ', 'a ', 'os ', 'as ')):
+            nome_cliente = nome_cliente.split(' ', 1)[1] 
+        if nome_barbeiro.lower().startswith(('o ', 'a ', 'os ', 'as ')):
+            nome_barbeiro = nome_barbeiro.split(' ', 1)[1]
+        # --- FIM DO IMPLANTE ---
+        
+        if nome_barbeiro in barbeiros_conhecidos:
+            idx = barbeiros_conhecidos.index(nome_barbeiro)
+            nome_barbeiro_original = BARBEIROS[idx]
+            return {'nome': nome_cliente.title(), 'horário': horario_formatado, 'barbeiro': nome_barbeiro_original}
+
+    # --- TENTATIVA 5: Regex (Barbeiro às HH:MM com Nome) ---
+    padrao_invertido = re.compile(r"(.+?)\s+(?:as|às|a|no|na)\s+(\d{1,2}:\d{2})\s+(?:com|como|cm|c|co)\s+(.+)", re.IGNORECASE)
+    match = padrao_invertido.search(comando_normalizado)
+    if match:
+        nome_barbeiro = match.group(1).strip()
+        horario = match.group(2).strip()
+        nome_cliente = match.group(3).strip()
+
+        try:
+            horario_obj = datetime.strptime(horario, "%H:%M")
+            horario_formatado = horario_obj.strftime("%H:%M")
+        except ValueError:
+            None
+
+        # --- "IMPLANTE ANTI-O" (A CURA GERAL) ---
+        if nome_cliente.lower().startswith(('o ', 'a ', 'os ', 'as ')):
+            nome_cliente = nome_cliente.split(' ', 1)[1] 
+        if nome_barbeiro.lower().startswith(('o ', 'a ', 'os ', 'as ')):
+            nome_barbeiro = nome_barbeiro.split(' ', 1)[1]
+        # --- FIM DO IMPLANTE ---
+
+        if nome_barbeiro in barbeiros_conhecidos:
+            idx = barbeiros_conhecidos.index(nome_barbeiro)
+            nome_barbeiro_original = BARBEIROS[idx]
+            return {'nome': nome_cliente.title(), 'horário': horario_formatado, 'barbeiro': nome_barbeiro_original}
+
+    return None
+# --- (Esta é o fim da sua função, linha 205) ---
 
 # --- INICIALIZAÇÃO DO ESTADO DA SESSÃO ---
 if 'view' not in st.session_state:
@@ -932,6 +1021,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
