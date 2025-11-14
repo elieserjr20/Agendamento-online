@@ -39,20 +39,45 @@ st.set_page_config(
 # CSS customizado para criar uma grade de agendamentos visual e responsiva
 st.markdown("""
 <style>
-    /* --- CÓDIGO ADICIONADO PARA REMOVER O ESPAÇO NO TOPO --- */
+    /* --- CÓDIGO QUE VOCÊ JÁ TINHA --- */
     div.block-container {
-        padding-top: 1.5rem; /* Ajuste este valor se necessário, ex: 0.5rem ou 0rem */
+        padding-top: 1.5rem; 
     }
     /* --------------------------------------------------------- */
     
+    
+    /* --- INÍCIO DO "IMPLANTE" (Plano G) --- */
+    /* Este é o "implante" da sua ideia de Grelha Rolável */
+    .grid-wrapper {
+        /* * 1. A Altura (O "Truque") 
+         * "100vh" = 100% da altura do ecrã.
+         * "300px" = O espaço (aprox.) que o seu Logo, Título, 
+         * Seletor de Data e a Barra de Chat ocupam.
+         * (Pode ter de "ajustar" os 300px se ficar muito apertado)
+        */
+        max-height: calc(100vh - 300px); 
+        
+        /* 2. A "Mágica" (O Scroll Interno) */
+        overflow-y: auto; 
+        
+        /* 3. Estética */
+        padding-right: 10px; /* Espaço para a barra de scroll */
+        border-top: 1px solid #333;
+        border-bottom: 1px solid #333;
+    }
+    /* --- FIM DO "IMPLANTE" --- */
+
+    
+    /* --- O RESTO DO SEU CSS DA GRELHA (JÁ ESTAVA AÍ) --- */
+    
     /* Define a célula base do agendamento */
     .schedule-cell {
-        height: 50px;              /* Altura fixa para cada célula */
-        border-radius: 8px;        /* Bordas arredondadas */
-        display: flex;             /* Centraliza o conteúdo */
+        height: 50px;           /* Altura fixa para cada célula */
+        border-radius: 8px;       /* Bordas arredondadas */
+        display: flex;            /* Centraliza o conteúdo */
         align-items: center;
         justify-content: center;
-        margin-bottom: 5px;        /* Espaço entre as linhas */
+        margin-bottom: 5px;       /* Espaço entre as linhas */
         padding: 5px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); /* Sombra sutil */
     }
@@ -647,53 +672,6 @@ elif st.session_state.view == 'fechar':
             
 # --- TELA PRINCIPAL (GRID DE AGENDAMENTOS) ---
 else:
-    components.html(
-        """
-        <style>
-            /* 1. O Estilo do Botão "Flutuante" (O "Pintor") */
-            #bttButton {
-                display: block; /* Garante que ele apareça */
-                position: fixed; /* "Flutua" sobre a página */
-                bottom: 80px;    /* 80px acima do fundo (para não ficar em cima do chat) */
-                right: 20px;     /* No canto direito */
-                z-index: 9999;   /* Fica EM CIMA de tudo */
-                
-                /* Aparência */
-                font-size: 24px;
-                border: none;
-                outline: none;
-                background-color: #007bff; /* Azul (ou a cor que você quiser) */
-                color: white;
-                cursor: pointer;
-                padding: 10px;
-                border-radius: 50%; /* Redondo */
-                width: 50px;
-                height: 50px;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            }
-            
-            #bttButton:hover {
-                background-color: #0056b3; /* Azul mais escuro ao passar o mouse */
-            }
-        </style>
-
-        <button id="bttButton" title="Voltar ao Topo">🔝</button>
-
-        <script>
-            // 3. A Ação (O "Engenheiro")
-            var mybutton = document.getElementById("bttButton");
-            
-            // Quando o utilizador clica no botão, "sobe"
-            mybutton.onclick = function() {
-                // Tenta "escapar" o iFrame do Streamlit e o iFrame do seu PWA
-                // Esta é a forma mais "agressiva" de subir
-                window.parent.window.parent.scrollTo(0, 0); 
-            }
-        </script>
-        """,
-        height=0 # O componente HTML é "invisível", só o botão flutua
-    )
-    
     st.title("Barbearia Lucas Borges - Agendamentos Internos")
     # Centraliza a logo
     cols_logo = st.columns([1, 2, 1])
@@ -707,67 +685,6 @@ else:
         key="data_input"
     )
 
-    # --- PLANO D 2.0 (A "Melhor Experiência" com Microfone do Teclado) ---
-    # Esta barra de chat fica "colada" no rodapé da página.
-    prompt = st.chat_input("Diga seu comando (Ex: Cliente às 10 com Lucas)")
-
-    if prompt:
-        # O 'prompt' é o texto que o utilizador enviou (falado ou digitado)
-        with st.spinner("Processando comando... 🧠"):
-            dados = parsear_comando(prompt)
-        
-        if dados:
-            # SUCESSO! Envia para o Modal de Confirmação
-            st.session_state.dados_voz = {
-                'nome': dados['nome'],
-                'horario': dados['horario'],
-                'barbeiro': dados['barbeiro'],
-                'data_obj': datetime.today().date() # Agenda sempre para HOJE
-            }
-            st.rerun() # Força o rerun para mostrar o modal
-        else:
-            # O "Def Perardo" falhou
-            st.error("Não entendi o comando. Tente 'Nome às XX horas com Barbeiro'.")
-
-    # --- MODAL DE CONFIRMAÇÃO DA VOZ (Do Plano D) ---
-    if st.session_state.dados_voz:
-        try:
-            dados = st.session_state.dados_voz
-            nome = dados['nome']
-            horario = dados['horario']
-            barbeiro = dados['barbeiro']
-            data_obj = dados['data_obj']
-
-            st.markdown("---")
-            st.subheader("Confirmar Agendamento por Voz?")
-            st.write(f"**Cliente:** `{nome}`")
-            st.write(f"**Horário:** `{horario}`")
-            st.write(f"**Barbeiro:** `{barbeiro}`")
-            st.write(f"**Data:** `{data_obj.strftime('%d/%m/%Y')}`")
-            
-            col_confirm, col_cancel = st.columns(2)
-            
-            if col_confirm.button("✅ Confirmar", key="btn_confirm_voz", type="primary", use_container_width=True):
-                # (Lógica de verificação de disponibilidade)
-                if salvar_agendamento(data_obj, horario, nome, "INTERNO (Voz)", ["(Voz)"], barbeiro, is_bloqueio=False):
-                    st.success(f"Agendado! {nome} às {horario} com {barbeiro}.")
-                    st.balloons()
-                    st.cache_data.clear()
-                    st.session_state.dados_voz = None
-                    time.sleep(2)
-                    st.rerun()
-                else:
-                    st.error("Falha ao salvar no banco de dados.")
-
-            if col_cancel.button("❌ Cancelar", key="btn_cancel_voz", use_container_width=True):
-                st.session_state.dados_voz = None
-                st.rerun()
-
-        except KeyError:
-            st.error("Erro nos dados da sessão. Por favor, fale novamente.")
-            st.session_state.dados_voz = None
-            
-    # --- VARIÁVEIS DE DATA ---
     # Usamos 'data_selecionada' como o nosso objeto de data principal
     data_obj = data_selecionada
     # Criamos a string 'DD/MM/AAAA' para usar nas chaves dos botões e exibição
@@ -827,16 +744,25 @@ else:
     ocupados_map = buscar_agendamentos_do_dia(data_obj)
     data_para_id = data_obj.strftime('%Y-%m-%d') # Formato AAAA-MM-DD para checar os IDs
 
-    # Header da Tabela
+    # ... (O seu 'ocupados_map = buscar_agendamentos_do_dia_cached(data_str)' termina aqui) ...
+    
+    st.markdown("---") # O separador da grelha
+    
+    # OS SEUS TÍTULOS (ALUIZIO, LUCAS)
     header_cols = st.columns([1.5, 3, 3])
-    header_cols[0].markdown("**Horário**")
+    header_cols[0].markdown("**Horário**") # (Mudei de "" para "**Horário**")
     for i, barbeiro in enumerate(barbeiros):
         header_cols[i+1].markdown(f"### {barbeiro}")
-    
-    # Geração do Grid Interativo
-    horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+
+    # --- "EMBRULHO" (Início) ---
+    # É AQUI! ANTES de 'horarios_tabela = [...]'
+    st.markdown("<div class='grid-wrapper'>", unsafe_allow_html=True)
+
+    # O SEU LOOP DE HORÁRIOS COMEÇA AQUI
+    horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(7, 20) for m in (0, 30)] # (Voltei para 7h, como estava no seu ficheiro original)
 
     for horario in horarios_tabela:
+        # --- (O SEU CÓDIGO COMEÇA AQUI) ---
         grid_cols = st.columns([1.5, 3, 3])
         grid_cols[0].markdown(f"#### {horario}")
 
@@ -951,7 +877,75 @@ else:
                             'dados': dados_agendamento
                         }
                         st.rerun()
-                        
+    # --- FIM DO 'FOR' LOOP DA GRELHA ---
+
+
+    # --- "EMBRULHO" (Fim) ---
+    # É AQUI! DEPOIS do 'st.rerun()' e ANTES do 'st.chat_input'
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    prompt = st.chat_input("Diga seu comando (Ex: Cliente às 10 com Lucas)")
+
+    if prompt:
+        # O 'prompt' é o texto que o utilizador enviou (falado ou digitado)
+        with st.spinner("Processando comando... 🧠"):
+            dados = parsear_comando(prompt)
+        
+        if dados:
+            # SUCESSO! Envia para o Modal de Confirmação
+            st.session_state.dados_voz = {
+                'nome': dados['nome'],
+                'horario': dados['horario'],
+                'barbeiro': dados['barbeiro'],
+                'data_obj': datetime.today().date() # Agenda sempre para HOJE
+            }
+            st.rerun() # Força o rerun para mostrar o modal
+        else:
+            # O "Def Perardo" falhou
+            st.error("Não entendi o comando. Tente 'Nome às XX horas com Barbeiro'.")
+
+    # --- MODAL DE CONFIRMAÇÃO DA VOZ (Do Plano D) ---
+    if st.session_state.dados_voz:
+        try:
+            dados = st.session_state.dados_voz
+            nome = dados['nome']
+            horario = dados['horario']
+            barbeiro = dados['barbeiro']
+            data_obj = dados['data_obj']
+
+            st.markdown("---")
+            st.subheader("Confirmar Agendamento por Voz?")
+            st.write(f"**Cliente:** `{nome}`")
+            st.write(f"**Horário:** `{horario}`")
+            st.write(f"**Barbeiro:** `{barbeiro}`")
+            st.write(f"**Data:** `{data_obj.strftime('%d/%m/%Y')}`")
+            
+            col_confirm, col_cancel = st.columns(2)
+            
+            if col_confirm.button("✅ Confirmar", key="btn_confirm_voz", type="primary", use_container_width=True):
+                # (Lógica de verificação de disponibilidade)
+                if salvar_agendamento(data_obj, horario, nome, "INTERNO (Voz)", ["(Voz)"], barbeiro, is_bloqueio=False):
+                    st.success(f"Agendado! {nome} às {horario} com {barbeiro}.")
+                    st.balloons()
+                    st.cache_data.clear()
+                    st.session_state.dados_voz = None
+                    time.sleep(2)
+                    st.rerun()
+                else:
+                    st.error("Falha ao salvar no banco de dados.")
+
+            if col_cancel.button("❌ Cancelar", key="btn_cancel_voz", use_container_width=True):
+                st.session_state.dados_voz = None
+                st.rerun()
+
+        except KeyError:
+            st.error("Erro nos dados da sessão. Por favor, fale novamente.")
+            st.session_state.dados_voz = None
+
+
+
+
+    
 
 
 
