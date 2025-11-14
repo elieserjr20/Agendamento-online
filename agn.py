@@ -409,7 +409,7 @@ def parsear_comando(comando):
 
         if nome_barbeiro in barbeiros_conhecidos:
             idx = barbeiros_conhecidos.index(nome_barbeiro)
-            nome_barbeiro_original = BARBEIROS[idx]
+            nome_barbeiro_original = barbeiros[idx]
             return {'nome': nome_cliente.title(), 'horário': horario_formatado, 'barbeiro': nome_barbeiro_original}
 
     # --- TENTATIVA 2: Regex (Nome às HH com Barbeiro) ---
@@ -431,7 +431,7 @@ def parsear_comando(comando):
         
         if nome_barbeiro in barbeiros_conhecidos:
             idx = barbeiros_conhecidos.index(nome_barbeiro)
-            nome_barbeiro_original = BARBEIROS[idx]
+            nome_barbeiro_original = barbeiros[idx]
             return {'nome': nome_cliente.title(), 'horário': horario_formatado, 'barbeiro': nome_barbeiro_original}
 
     # --- TENTATIVA 3: Regex (Nome, Barbeiro às HH:MM) ---
@@ -457,7 +457,7 @@ def parsear_comando(comando):
 
         if nome_barbeiro in barbeiros_conhecidos:
             idx = barbeiros_conhecidos.index(nome_barbeiro)
-            nome_barbeiro_original = BARBEIROS[idx]
+            nome_barbeiro_original = barbeiros[idx]
             return {'nome': nome_cliente.title(), 'horário': horario_formatado, 'barbeiro': nome_barbeiro_original}
 
     # --- TENTATIVA 4: Regex (Nome, Barbeiro às HH) ---
@@ -479,7 +479,7 @@ def parsear_comando(comando):
         
         if nome_barbeiro in barbeiros_conhecidos:
             idx = barbeiros_conhecidos.index(nome_barbeiro)
-            nome_barbeiro_original = BARBEIROS[idx]
+            nome_barbeiro_original = barbeiros[idx]
             return {'nome': nome_cliente.title(), 'horário': horario_formatado, 'barbeiro': nome_barbeiro_original}
 
     # --- TENTATIVA 5: Regex (Barbeiro às HH:MM com Nome) ---
@@ -505,7 +505,7 @@ def parsear_comando(comando):
 
         if nome_barbeiro in barbeiros_conhecidos:
             idx = barbeiros_conhecidos.index(nome_barbeiro)
-            nome_barbeiro_original = BARBEIROS[idx]
+            nome_barbeiro_original = barbeiros[idx]
             return {'nome': nome_cliente.title(), 'horário': horario_formatado, 'barbeiro': nome_barbeiro_original}
 
     return None
@@ -1033,6 +1033,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
