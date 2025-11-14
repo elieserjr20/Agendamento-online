@@ -357,7 +357,7 @@ def parsear_comando(texto):
 
     texto_norm = texto
     if isinstance(texto, str):
-        try
+        try:
             # Remove acentos e põe em minúsculo
             texto_norm = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
             texto_norm = texto_norm.lower()
@@ -902,6 +902,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
