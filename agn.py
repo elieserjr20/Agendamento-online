@@ -649,11 +649,25 @@ else:
         """
         <script>
             setTimeout(function() {
+                try {
+                    // 1. Encontra a barra de chat (que "rouba" o foco)
+                    // (Temos de procurar no 'window.parent' por causa do iframe do Streamlit)
+                    var chatInput = window.parent.document.querySelector('textarea[data-testid="chatInput"]');
+                    
+                    if (chatInput) {
+                        // 2. Tira o foco dela
+                        chatInput.blur();
+                    }
+                } catch (e) {
+                    // Ignora erros (caso o elemento não exista ou esteja em outro iframe)
+                }
+                
+                // 3. Força o scroll para o topo
                 window.scrollTo(0, 0);
-            }, 10);
+            }, 50); // Aumentamos o tempo para 50ms (mais seguro)
         </script>
         """,
-        height=0 # O componente é invisível
+        height=0 # Invisível
     )
     
     st.title("Barbearia Lucas Borges - Agendamentos Internos")
@@ -914,6 +928,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
