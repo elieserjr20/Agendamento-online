@@ -801,7 +801,7 @@ else:
             # SUCESSO! Envia para o Modal de Confirmação
             st.session_state.dados_voz = {
                 'nome': dados['nome'],
-                'horario': dados['horario'],
+                'horario': dados['horário'],
                 'barbeiro': dados['barbeiro'],
                 'data_obj': datetime.today().date() # Agenda sempre para HOJE
             }
@@ -1033,6 +1033,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
