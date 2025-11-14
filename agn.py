@@ -33,6 +33,39 @@ st.set_page_config(
     layout="wide" # ou "wide", como preferir
 )
 
+components.html(
+    """
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            setTimeout(function() {
+                try {
+                    // Cria (ou localiza) um elemento oculto no topo para roubar o foco
+                    let topo = window.parent.document.getElementById("fixar-topo");
+                    if (!topo) {
+                        topo = window.parent.document.createElement("div");
+                        topo.id = "fixar-topo";
+                        topo.tabIndex = -1;
+                        topo.style.position = "absolute";
+                        topo.style.top = "0px";
+                        topo.style.left = "0px";
+                        topo.style.width = "1px";
+                        topo.style.height = "1px";
+                        topo.style.opacity = "0";
+                        window.parent.document.body.prepend(topo);
+                    }
+
+                    topo.focus();  // força o foco no topo
+                    window.parent.scrollTo(0, 0);  // garante o scroll no topo
+                } catch (e) {}
+            }, 800); // 800ms = tempo necessário para st.chat_input renderizar
+        });
+    </script>
+    """,
+    height=0
+)
+
+
+
 # CSS customizado para colorir os botões da tabela e centralizar o texto
 # CSS customizado para criar uma grade de agendamentos visual e responsiva
 st.markdown("""
@@ -645,35 +678,6 @@ elif st.session_state.view == 'fechar':
             
 # --- TELA PRINCIPAL (GRID DE AGENDAMENTOS) ---
 else:
-    components.html(
-        """
-        <script>
-            setTimeout(function() {
-                try {
-                    // 1. Tenta focar no elemento H1 (o st.title)
-                    // (Usamos o window.parent para "escapar" o iframe do componente)
-                    var titleElement = window.parent.document.querySelector('h1');
-                    
-                    if (titleElement) {
-                        // "Rouba" o foco para o título
-                        titleElement.focus();
-                    } else {
-                        // Se falhar, foca no "corpo" da página
-                        window.parent.document.body.focus();
-                    }
-                } catch (e) {
-                    // Ignora erros de permissão de iframe (se houver)
-                }
-                
-                // 2. Força o scroll para o topo (DE NOVO)
-                window.scrollTo(0, 0);
-                
-            }, 100); // Aumentamos o tempo para 100ms (desespero)
-        </script>
-        """,
-        height=0 # Invisível
-    )
-    
     st.title("Barbearia Lucas Borges - Agendamentos Internos")
     # Centraliza a logo
     cols_logo = st.columns([1, 2, 1])
@@ -681,7 +685,7 @@ else:
         st.image("https://i.imgur.com/XVOXz8F.png", width=350)
 
     data_selecionada = st.date_input(
-        "Selecione a data para visualizar",
+        "Selecione a data para visualizar a disponibilidade",
         value=datetime.today(),
         min_value=datetime.today().date(),
         key="data_input"
@@ -932,6 +936,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
