@@ -9,6 +9,8 @@ import json
 from PIL import Image
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
+import re
+import unicodedata
 
 # --- DEFINIÇÃO DE CAMINHOS SEGUROS (PARA O FAVICON) ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -203,20 +205,28 @@ def buscar_agendamentos_do_dia(data_obj):
     return ocupados_map
 
 # FUNÇÕES DE ESCRITA (JÁ CORRIGIDAS NA NOSSA CONVERSA)
-def salvar_agendamento(data_obj, horario, nome, telefone, servicos, barbeiro):
+def salvar_agendamento(data_obj, horario, nome, telefone, servicos, barbeiro, is_bloqueio=False):
     if not db: return False
     data_para_id = data_obj.strftime('%Y-%m-%d')
-    chave_agendamento = f"{data_para_id}_{horario}_{barbeiro}"
+    chave_base = f"{data_para_id}_{horario}_{barbeiro}"
+    
+    # Lógica de Bloqueio
+    if is_bloqueio:
+        chave_agendamento = f"{chave_base}_BLOQUEADO"
+        nome = "Bloqueado"
+    else:
+        chave_agendamento = chave_base
+
     try:
-        # CORREÇÃO: Converte o objeto 'date' para 'datetime' antes de salvar
         data_para_salvar = datetime.combine(data_obj, datetime.min.time())
         db.collection('agendamentos').document(chave_agendamento).set({
-            'nome': nome, 'telefone': telefone, 'servicos': servicos,
-            'barbeiro': barbeiro, 'data': data_para_salvar, 'horario': horario
+            'nome': nome, 'telefone': telefone, 'servicos': servicos, 'barbeiro': barbeiro,
+            'data': data_para_salvar, 'horario': horario, 'status': "Confirmado",
+            'data_agendamento': firestore.SERVER_TIMESTAMP
         })
         return True
     except Exception as e:
-        st.error(f"Erro ao salvar agendamento: {e}")
+        print(f"Erro ao salvar: {e}")
         return False
 
 def bloquear_horario(data_obj, horario, barbeiro, motivo="BLOQUEADO"):
@@ -338,12 +348,74 @@ def desbloquear_horario_especifico(data_obj, horario, barbeiro):
     except Exception as e:
         st.error(f"Erro ao tentar desbloquear horário: {e}")
         return False
+        
+# --- O "DEF PERARDO 2.0" (O TRADUTOR DE TEXTO) ---
+def parsear_comando(texto):
+    barbeiro = None
+    horario = None
+    nome_cliente = None
+
+    texto_norm = texto
+    if isinstance(texto, str):
+        try
+            # Remove acentos e põe em minúsculo
+            texto_norm = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
+            texto_norm = texto_norm.lower()
+        except:
+            texto_norm = texto.lower() # Fallback
+
+    # 1. Encontrar Barbeiro
+    if re.search(r'lucas\s*borges|lucas', texto_norm):
+        barbeiro = "Lucas Borges"
+        texto_norm = re.sub(r'lucas\s*borges|lucas', '', texto_norm, count=1)
+    elif re.search(r'aluisio|aloisio|alu', texto_norm):
+        barbeiro = "Aluizio"
+        texto_norm = re.sub(r'aluisio|aloisio|alu', '', texto_norm, count=1)
+    else:
+        return None # Barbeiro é obrigatório
+
+    # 2. Encontrar Horário (lógica autônoma)
+    # Procura por "10 e meia", "10e30", "10:30"
+    match_meia = re.search(r'(\d{1,2})\s*(?:e\s*meia|e\s*30|:30)', texto_norm)
+    
+    if match_meia: 
+        hora = int(match_meia.group(1))
+        minuto = 30
+        horario = f"{hora:02d}:{minuto:02d}"
+        # Remove o que encontrou
+        texto_norm = re.sub(r'(\d{1,2})\s*(?:e\s*meia|e\s*30|:30)', '', texto_norm, count=1)
+    else:
+        # Se não, procura por hora cheia: "10 horas", "10h", "10"
+        match_hora = re.search(r'(\d{1,2})', texto_norm)
+        
+        if match_hora:
+            hora = int(match_hora.group(1))
+            minuto = 0
+            horario = f"{hora:02d}:{minuto:02d}"
+            
+            # Remove a hora e palavras associadas
+            texto_norm = re.sub(r'(\d{1,2})\s*(?:horas|h|:00)?', '', texto_norm, count=1)
+            texto_norm = re.sub(r'\s*(as|pelas|para as)\s*', '', texto_norm) # Remove 'às'
+        else:
+            return None # Não achou horário
+
+    # 3. O que sobrar é o Nome do Cliente
+    texto_norm = re.sub(r'\s*(com|para|o|a)\s*', ' ', texto_norm)
+    nome_cliente = texto_norm.strip().title()
+    
+    if not nome_cliente:
+        return None # Nome é obrigatório
+
+    # 4. Sucesso
+    return {'nome': nome_cliente, 'horario': horario, 'barbeiro': barbeiro}
 
 # --- INICIALIZAÇÃO DO ESTADO DA SESSÃO ---
 if 'view' not in st.session_state:
     st.session_state.view = 'main' # 'main', 'agendar', 'cancelar'
     st.session_state.selected_data = None
     st.session_state.agendamento_info = {}
+if 'dados_voz' not in st.session_state:
+    st.session_state.dados_voz = None
 
 # --- LÓGICA DE NAVEGAÇÃO E EXIBIÇÃO (MODAIS) ---
 
@@ -381,35 +453,47 @@ if st.session_state.view == 'agendar':
                     st.error("O nome do cliente é obrigatório!")
                 else:
                     with st.spinner("Processando..."):
-                        # Sua lógica de bloquear o próximo horário (mantida e corrigida)
+                        
+                        is_bloqueio = nome_cliente.strip().lower() == 'bloqueado'
+                        
+                        # 2. Lógica de Corte+Barba (SÓ corre se NÃO for bloqueio)
                         precisa_bloquear_proximo = False
-                        if "Barba" in servicos_selecionados and any(c in servicos_selecionados for c in ["Tradicional", "Social", "Degradê", "Navalhado"]):
+                        if "Barba" in servicos_selecionados and any(c in servicos_selecionados for c in ["Tradicional", "Social", "Degradê", "Navalhado"]) and not is_bloqueio:
                             horario_seguinte_dt = datetime.strptime(horario, '%H:%M') + timedelta(minutes=30)
                             horario_seguinte_str = horario_seguinte_dt.strftime('%H:%M')
+                            
+                            # (Assumindo que você tem esta função 'verificar_disponibilidade_especifica' no seu código)
                             if verificar_disponibilidade_especifica(data_obj, horario_seguinte_str, barbeiro):
                                 precisa_bloquear_proximo = True
                             else:
                                 st.error("Não é possível agendar Corte+Barba. O horário seguinte não está disponível.")
-                                st.stop()
+                                st.stop() # Pára a execução
 
-                        # Chamada da função de salvar com a variável correta (data_obj)
-                        if salvar_agendamento(data_obj, horario, nome_cliente, "INTERNO", servicos_selecionados, barbeiro):
+                        # 3. Chamada de salvar (AGORA COM 'is_bloqueio')
+                        if salvar_agendamento(data_obj, horario, nome_cliente, "INTERNO", servicos_selecionados, barbeiro, is_bloqueio=is_bloqueio):
+                            
                             if precisa_bloquear_proximo:
+                                # (Assumindo que você tem esta função 'bloquear_horario' no seu código)
                                 bloquear_horario(data_obj, horario_seguinte_str, barbeiro, "BLOQUEADO")
 
-                            st.success(f"Agendamento para {nome_cliente} confirmado!")
+                            # 4. Mensagem de sucesso "inteligente"
+                            st.success("Horário bloqueado com sucesso!" if is_bloqueio else f"Agendamento para {nome_cliente} confirmado!")
                             
-                            # E-mail enviado com a data formatada corretamente
-                            assunto_email = f"Novo Agendamento: {nome_cliente} em {data_str_display}"
-                            mensagem_email = (
-                                f"Agendamento interno:\n\nCliente: {nome_cliente}\nData: {data_str_display}\n"
-                                f"Horário: {horario}\nBarbeiro: {barbeiro}\n"
-                                f"Serviços: {', '.join(servicos_selecionados) if servicos_selecionados else 'Nenhum'}"
-                            )
-                            enviar_email(assunto_email, mensagem_email)
+                            # 5. Só envia e-mail se NÃO for um bloqueio
+                            if not is_bloqueio:
+                                assunto_email = f"Novo Agendamento: {nome_cliente} em {data_str_display}"
+                                mensagem_email = (
+                                    f"Agendamento interno:\n\nCliente: {nome_cliente}\nData: {data_str_display}\n"
+                                    f"Horário: {horario}\nBarbeiro: {barbeiro}\n"
+                                    f"Serviços: {', '.join(servicos_selecionados) if servicos_selecionados else 'Nenhum'}"
+                                )
+                                # (Assumindo que você tem esta função 'enviar_email' no seu código)
+                                enviar_email(assunto_email, mensagem_email)
                             
+                            # --- FIM DA "INTEGRAÇÃO" ---
+
                             st.cache_data.clear()
-                            st.session_state.view = 'agenda'
+                            st.session_state.view = 'agenda' # (O seu código usa 'agenda', mantive)
                             time.sleep(2)
                             st.rerun()
                         else:
@@ -573,6 +657,66 @@ else:
         key="data_input"
     )
 
+    # --- PLANO D 2.0 (A "Melhor Experiência" com Microfone do Teclado) ---
+    # Esta barra de chat fica "colada" no rodapé da página.
+    prompt = st.chat_input("Diga seu comando (Ex: Júnior às 10 com Lucas)")
+
+    if prompt:
+        # O 'prompt' é o texto que o utilizador enviou (falado ou digitado)
+        with st.spinner("Processando comando... 🧠"):
+            dados = parsear_comando(prompt)
+        
+        if dados:
+            # SUCESSO! Envia para o Modal de Confirmação
+            st.session_state.dados_voz = {
+                'nome': dados['nome'],
+                'horario': dados['horario'],
+                'barbeiro': dados['barbeiro'],
+                'data_obj': datetime.today().date() # Agenda sempre para HOJE
+            }
+            st.rerun() # Força o rerun para mostrar o modal
+        else:
+            # O "Def Perardo" falhou
+            st.error("Não entendi o comando. Tente 'Nome às XX horas com Barbeiro'.")
+
+    # --- MODAL DE CONFIRMAÇÃO DA VOZ (Do Plano D) ---
+    if st.session_state.dados_voz:
+        try:
+            dados = st.session_state.dados_voz
+            nome = dados['nome']
+            horario = dados['horario']
+            barbeiro = dados['barbeiro']
+            data_obj = dados['data_obj']
+
+            st.markdown("---")
+            st.subheader("Confirmar Agendamento por Voz?")
+            st.write(f"**Cliente:** `{nome}`")
+            st.write(f"**Horário:** `{horario}`")
+            st.write(f"**Barbeiro:** `{barbeiro}`")
+            st.write(f"**Data:** `{data_obj.strftime('%d/%m/%Y')}`")
+            
+            col_confirm, col_cancel = st.columns(2)
+            
+            if col_confirm.button("✅ Confirmar", key="btn_confirm_voz", type="primary", use_container_width=True):
+                # (Lógica de verificação de disponibilidade)
+                if salvar_agendamento(data_obj, horario, nome, "INTERNO (Voz)", ["(Voz)"], barbeiro, is_bloqueio=False):
+                    st.success(f"Agendado! {nome} às {horario} com {barbeiro}.")
+                    st.balloons()
+                    st.cache_data.clear()
+                    st.session_state.dados_voz = None
+                    time.sleep(2)
+                    st.rerun()
+                else:
+                    st.error("Falha ao salvar no banco de dados.")
+
+            if col_cancel.button("❌ Cancelar", key="btn_cancel_voz", use_container_width=True):
+                st.session_state.dados_voz = None
+                st.rerun()
+
+        except KeyError:
+            st.error("Erro nos dados da sessão. Por favor, fale novamente.")
+            st.session_state.dados_voz = None
+            
     # --- VARIÁVEIS DE DATA ---
     # Usamos 'data_selecionada' como o nosso objeto de data principal
     data_obj = data_selecionada
@@ -758,6 +902,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
