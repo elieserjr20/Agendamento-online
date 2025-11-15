@@ -705,7 +705,7 @@ elif st.session_state.view == 'confirmar_chat':
         col_confirm, col_cancel = st.columns(2)
         
         if col_confirm.button("✅ Confirmar Agendamento", key="btn_confirm_chat", type="primary", use_container_width=True):
-            # Lógica de salvar (a mesma que você já tinha)
+            # Lógica de salvar
             if salvar_agendamento(data_obj, horario, nome, "INTERNO (Voz)", ["(Voz)"], barbeiro, is_bloqueio=False):
                 st.success(f"Agendado! {nome} às {horario} com {barbeiro}.")
                 st.balloons()
@@ -719,29 +719,22 @@ elif st.session_state.view == 'confirmar_chat':
                         f"Horário: {horario}\nBarbeiro: {barbeiro}\n"
                         f"Serviços: (Chat/Voz)"
                     )
-                    # (Usando a sua função de email interno, como no 'agendar' manual)
                     enviar_email(assunto_email, mensagem_email)
                     st.info("Notificação interna enviada.")
                 except Exception as e:
                     st.warning(f"Agendamento salvo, mas falha ao enviar notificação interna: {e}")
-                # --- FIM DA NOTIFICAÇÃO ---
                 
                 # Limpa os dados e VOLTA PARA A AGENDA
                 st.session_state.confirmacao_chat_info = None
                 st.session_state.view = 'agenda' 
-                
                 time.sleep(3) # Damos 3s para ler o status
                 st.rerun()
             else:
+                # --- (CORREÇÃO) ---
+                # Se falhar, apenas mostre o erro.
+                # NÃO volte para a agenda. Deixe o usuário ver o erro.
                 st.error("Falha ao salvar no banco de dados. O horário pode estar ocupado.")
-                
-                # 2. Limpa os dados e VOLTA PARA A AGENDA
-                st.session_state.confirmacao_chat_info = None
-                st.session_state.view = 'agenda' 
-                time.sleep(2)
-                st.rerun()
-            else:
-                st.error("Falha ao salvar no banco de dados. O horário pode estar ocupado.")
+                # (O 'st.rerun()' e a volta para a agenda foram removidos daqui)
 
         if col_cancel.button("❌ Cancelar (Voltar para Agenda)", key="btn_cancel_chat", use_container_width=True):
             # 3. Apenas limpa os dados e VOLTA PARA A AGENDA
@@ -1071,6 +1064,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
