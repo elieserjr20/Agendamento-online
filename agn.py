@@ -35,34 +35,58 @@ st.set_page_config(
 
 # CSS customizado para colorir os botões da tabela e centralizar o texto
 # CSS customizado para criar uma grade de agendamentos visual e responsiva
+# Coloque isto logo após o st.set_page_config
+
 st.markdown("""
 <style>
-    /* --- CÓDIGO ADICIONADO PARA REMOVER O ESPAÇO NO TOPO --- */
-    div.block-container {
-        padding-top: 1.5rem; /* Ajuste este valor se necessário, ex: 0.5rem ou 0rem */
+    /* 1. AJUSTES DE LAYOUT (REMOVER TOPO E ADICIONAR FUNDO) 
+       Usamos !important para garantir que estas regras ganham.
+    */
+    [data-testid="stAppViewContainer"] > [data-testid="block-container"] {
+        padding-top: 1.5rem !important;
+        /* Aumentei o padding para 120px para ter a certeza
+           que cobre a barra de chat + algum espaço
+        */
+        padding-bottom: 120px !important; 
     }
-    /* --------------------------------------------------------- */
-    
-    /* Define a célula base do agendamento */
+
+    /* 2. FIXA O CHAT INPUT NO RODAPÉ (COM !important)
+    */
+    div[data-testid="stChatInput"] {
+        position: fixed !important;
+        bottom: 0 !important;
+        z-index: 1000 !important;
+        
+        /* Alinha com o layout "wide" */
+        left: 1rem !important;
+        right: 1rem !important;
+        width: auto !important;
+        
+        /* Cor de fundo (Mudar para #FFFFFF se o tema for claro) */
+        background-color: #0E1117 !important; 
+        padding-top: 10px !important;
+        padding-bottom: 10px !important; /* Adiciona um respiro em baixo */
+    }
+
+    /* 3. CSS DA GRELHA DE AGENDAMENTO (O seu código original) 
+       (Não precisa de !important aqui)
+    */
     .schedule-cell {
-        height: 50px;              /* Altura fixa para cada célula */
-        border-radius: 8px;        /* Bordas arredondadas */
-        display: flex;             /* Centraliza o conteúdo */
+        height: 50px;
+        border-radius: 8px;
+        display: flex;
         align-items: center;
         justify-content: center;
-        margin-bottom: 5px;        /* Espaço entre as linhas */
+        margin-bottom: 5px;
         padding: 5px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); /* Sombra sutil */
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
     }
+    .schedule-cell.disponivel { background-color: #28a745; }
+    .schedule-cell.ocupado    { background-color: #dc3545; }
+    .schedule-cell.almoco     { background-color: #ffc107; color: black;}
+    .schedule-cell.indisponivel { background-color: #6c757d; }
+    .schedule-cell.fechado { background-color: #A9A9A9; color: black; }
 
-    /* Cores de fundo baseadas no status */
-    .schedule-cell.disponivel { background-color: #28a745; } /* Verde */
-    .schedule-cell.ocupado    { background-color: #dc3545; } /* Vermelho */
-    .schedule-cell.almoco     { background-color: #ffc107; color: black;} /* Laranja */
-    .schedule-cell.indisponivel { background-color: #6c757d; } /* Cinza padrão para indisponível (SDJ, Descanso) */
-    .schedule-cell.fechado { background-color: #A9A9A9; color: black; } /* Nova classe para "Fechado" */
-
-    /* Estiliza o botão dentro da célula para ser "invisível" mas clicável */
     .schedule-cell button {
         background-color: transparent;
         color: white;
@@ -72,21 +96,16 @@ st.markdown("""
         font-weight: bold;
     }
     
-    /* Para o texto do botão (que é um <p> dentro do botão do Streamlit) */
     .schedule-cell button p {
-        color: white; /* Cor do texto para status verde e vermelho */
+        color: white;
         margin: 0;
-        white-space: nowrap;      /* Impede a quebra de linha */
-        overflow: hidden;         /* Esconde o que passar do limite */
-        text-overflow: ellipsis;  /* Adiciona "..." ao final de texto longo */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
-
-    /* Cor do texto específica para a célula de almoço */
     .schedule-cell.almoco button p {
         color: black;
     }
-
-    /* Remove o ponteiro de clique para horários não clicáveis */
     .schedule-cell.indisponivel {
         pointer-events: none;
     }
@@ -1031,6 +1050,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
