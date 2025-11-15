@@ -357,7 +357,8 @@ def remover_foco_chat():
     """
     # Damos um 'delay' de 50ms para garantir que o chat_input
     # já foi renderizado pelo Streamlit após o rerun.
-    components.v1.html(
+    # Correto
+    components.html(
         f"""
         <script>
         setTimeout(function() {{
@@ -1063,6 +1064,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
