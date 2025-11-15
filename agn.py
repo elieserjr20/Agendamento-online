@@ -779,7 +779,7 @@ else:
 
         # O 'prompt' é o texto que o utilizador enviou (falado ou digitado)
         with st.spinner("Processando comando... 🧠"):
-            dados = parse_ar_comando(prompt)
+            dados = parsear_comando(prompt)
         
         if dados:
             # SUCESSO! Envia para o Modal de Confirmação
@@ -1040,6 +1040,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
