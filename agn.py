@@ -517,6 +517,8 @@ if 'view' not in st.session_state:
     st.session_state.agendamento_info = {}
 if 'dados_voz' not in st.session_state:
     st.session_state.dados_voz = None
+if 'chat_error' not in st.session_state:
+    st.session_state.chat_error = None
 
 # --- LÓGICA DE NAVEGAÇÃO E EXIBIÇÃO (MODAIS) ---
 
@@ -745,35 +747,6 @@ elif st.session_state.view == 'fechar':
             
 # --- TELA PRINCIPAL (GRID DE AGENDAMENTOS) ---
 else:
-    components.html(
-        """
-        <script>
-            setTimeout(function() {
-                try {
-                    // 1. Tenta focar no elemento H1 (o st.title)
-                    // (Usamos o window.parent para "escapar" o iframe do componente)
-                    var titleElement = window.parent.document.querySelector('h1');
-                    
-                    if (titleElement) {
-                        // "Rouba" o foco para o título
-                        titleElement.focus();
-                    } else {
-                        // Se falhar, foca no "corpo" da página
-                        window.parent.document.body.focus();
-                    }
-                } catch (e) {
-                    // Ignora erros de permissão de iframe (se houver)
-                }
-                
-                // 2. Força o scroll para o topo (DE NOVO)
-                window.scrollTo(0, 0);
-                
-            }, 100); // Aumentamos o tempo para 100ms (desespero)
-        </script>
-        """,
-        height=0 # Invisível
-    )
-    
     st.title("Barbearia Lucas Borges - Agendamentos Internos")
     # Centraliza a logo
     cols_logo = st.columns([1, 2, 1])
@@ -792,6 +765,11 @@ else:
     prompt = st.chat_input("Diga seu comando (Ex: Cliente às 10 com Lucas Borges)")
 
     if prompt:
+        # --- INÍCIO DA CORREÇÃO ---
+        # 1. Limpamos qualquer erro anterior no momento que um NOVO prompt é enviado.
+        st.session_state.chat_error = None
+        # --- FIM DA CORREÇÃO ---
+
         # O 'prompt' é o texto que o utilizador enviou (falado ou digitado)
         with st.spinner("Processando comando... 🧠"):
             dados = parsear_comando(prompt)
@@ -804,17 +782,34 @@ else:
                 'barbeiro': dados['barbeiro'],
                 'data_obj': datetime.today().date() # Agenda sempre para HOJE
             }
+            # (Não precisamos mais limpar o erro aqui, já foi limpo no início)
             st.rerun() # Força o rerun para mostrar o modal
         else:
-            # O "Def Perardo" falhou
-            st.error("Não entendi o comando. Tente 'Nome às XX horas com Barbeiro'.")
+            # --- INÍCIO DA CORREÇÃO ---
+            # 2. Em vez de chamar st.error() direto, salvamos a mensagem no estado.
+            st.session_state.chat_error = "Não entendi o comando. Tente 'Nome às XX horas com Barbeiro'."
+            st.rerun() # Força o rerun para mostrar o erro e limpar o chat_input
+            # --- FIM DA CORREÇÃO ---
+
+    # --- INÍCIO DA CORREÇÃO ---
+    # 3. Exibimos o erro APENAS se ele estiver salvo no estado da sessão.
+    if st.session_state.chat_error:
+        st.error(st.session_state.chat_error, icon="🚨")
+    # --- FIM DA CORREÇÃO ---
+
 
     # --- MODAL DE CONFIRMAÇÃO DA VOZ (Do Plano D) ---
     if st.session_state.dados_voz:
+        # --- INÍCIO DA CORREÇÃO ---
+        # 4. Garantimos que, se o modal de sucesso/confirmação está visível,
+        #    qualquer erro de chat anterior é removido.
+        st.session_state.chat_error = None
+        # --- FIM DA CORREÇÃO ---
+        
         try:
             dados = st.session_state.dados_voz
             nome = dados['nome']
-            horario = dados['horario']
+            horario = dados['horário']
             barbeiro = dados['barbeiro']
             data_obj = dados['data_obj']
 
@@ -844,8 +839,12 @@ else:
                 st.rerun()
 
         except KeyError:
-            st.error("Erro nos dados da sessão. Por favor, fale novamente.")
+            # --- INÍCIO DA CORREÇÃO ---
+            # 5. Se der um erro raro de "KeyError", usamos o estado da sessão
             st.session_state.dados_voz = None
+            st.session_state.chat_error = "Erro nos dados da sessão. Por favor, fale novamente."
+            st.rerun() # Rerun para limpar o modal e mostrar o novo erro
+            # --- FIM DA CORREÇÃO ---
             
     # --- VARIÁVEIS DE DATA ---
     # Usamos 'data_selecionada' como o nosso objeto de data principal
@@ -1032,6 +1031,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
