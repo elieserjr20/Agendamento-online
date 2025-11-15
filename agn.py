@@ -94,48 +94,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- INJETAR CSS PARA FIXAR O CHAT INPUT ---
-# (Pode colocar isto perto do seu st.set_page_config no início do script)
 
-st.markdown("""
-<style>
-
-/* 1. FIXA O CHAT INPUT NO RODAPÉ DA JANELA 
-*/
-div[data-testid="stChatInput"] {
-    position: fixed; /* Fixa o elemento na janela de visualização */
-    bottom: 0;       /* Alinha-o no fundo */
-    z-index: 1000;   /* Garante que ele fique acima da grelha */
-    
-    /* Faz o chat ocupar a largura correta 
-       respeitando os paddings laterais da página
-    */
-    left: 1rem;
-    right: 1rem;
-    width: auto;
-    
-    /* Define uma cor de fundo para não ficar transparente.
-       IMPORTANTE: Se o seu tema for CLARO, mude para #FFFFFF
-    */
-    background-color: #0E1117; /* Cor de fundo escura padrão do Streamlit */
-    padding-top: 10px; /* Um pequeno respiro acima do chat */
-}
-
-/* 2. ADICIONA ESPAÇO NO FIM DA PÁGINA (NA GRELHA)
-     Isto é CRUCIAL para que a barra de chat 
-     não cubra os últimos horários.
-*/
-[data-testid="stAppViewContainer"] > [data-testid="block-container"] {
-    /* A altura do chat_input é ~80px. 
-      Colocamos 100px para dar uma margem segura.
-    */
-    padding-bottom: 100px; 
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# -----------------------------------------------
 # --- INICIALIZAÇÃO DO FIREBASE E E-MAIL (Mesmo do código original) ---
 
 FIREBASE_CREDENTIALS = None
@@ -1072,10 +1031,6 @@ else:
                         }
                         st.rerun()
                         
-
-
-
-
 
 
 
