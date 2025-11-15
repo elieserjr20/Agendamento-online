@@ -809,7 +809,7 @@ else:
         try:
             dados = st.session_state.dados_voz
             nome = dados['nome']
-            horario = dados['horário']
+            horario = dados['horario']
             barbeiro = dados['barbeiro']
             data_obj = dados['data_obj']
 
@@ -1031,6 +1031,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
