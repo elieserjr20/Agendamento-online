@@ -710,6 +710,30 @@ elif st.session_state.view == 'confirmar_chat':
                 st.success(f"Agendado! {nome} às {horario} com {barbeiro}.")
                 st.balloons()
                 st.cache_data.clear()
+
+                try:
+                    data_str_email = data_obj.strftime('%d/%m/%Y')
+                    assunto_email = f"Novo Agendamento (via Chat): {nome} em {data_str_email}"
+                    mensagem_email = (
+                        f"Agendamento via Chat/Voz:\n\nCliente: {nome}\nData: {data_str_email}\n"
+                        f"Horário: {horario}\nBarbeiro: {barbeiro}\n"
+                        f"Serviços: (Chat/Voz)"
+                    )
+                    # (Usando a sua função de email interno, como no 'agendar' manual)
+                    enviar_email(assunto_email, mensagem_email)
+                    st.info("Notificação interna enviada.")
+                except Exception as e:
+                    st.warning(f"Agendamento salvo, mas falha ao enviar notificação interna: {e}")
+                # --- FIM DA NOTIFICAÇÃO ---
+                
+                # Limpa os dados e VOLTA PARA A AGENDA
+                st.session_state.confirmacao_chat_info = None
+                st.session_state.view = 'agenda' 
+                
+                time.sleep(3) # Damos 3s para ler o status
+                st.rerun()
+            else:
+                st.error("Falha ao salvar no banco de dados. O horário pode estar ocupado.")
                 
                 # 2. Limpa os dados e VOLTA PARA A AGENDA
                 st.session_state.confirmacao_chat_info = None
@@ -1047,6 +1071,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
