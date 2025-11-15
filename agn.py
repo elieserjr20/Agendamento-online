@@ -35,44 +35,22 @@ st.set_page_config(
 
 # CSS customizado para colorir os botões da tabela e centralizar o texto
 # CSS customizado para criar uma grade de agendamentos visual e responsiva
-# Coloque isto logo após o st.set_page_config
 st.markdown("""
 <style>
-
-    /* --- 1. O SEU CSS ORIGINAL (Ajuste do topo) --- */
+    /* --- CÓDIGO ADICIONADO PARA REMOVER O ESPAÇO NO TOPO --- */
     div.block-container {
-        padding-top: 1.5rem; /* Ajuste este valor se necessário */
+        padding-top: 1.5rem; /* Ajuste este valor se necessário, ex: 0.5rem ou 0rem */
     }
-
-    /* --- 2. O NOVO "MOLDE" DA GRELHA (A SOLUÇÃO) --- */
-    /* Define a caixa que terá a barra de scroll própria */
-    .grelha-container {
-        /* * Define uma altura fixa. 70vh = 70% da altura da janela.
-         * Pode ajustar este valor (ex: 75vh ou 65vh)
-         * para ver o que fica melhor no telemóvel.
-        */
-        height: 70vh; 
-        
-        /* A MÁGICA: Adiciona a barra de scroll SÓ AQUI */
-        overflow-y: auto; 
-        
-        /* Estética (opcional, para ver a caixa) */
-        border: 1px solid #333; /* Borda suave */
-        border-radius: 8px;
-        padding: 10px; /* Espaço interno */
-        margin-bottom: 1rem; /* Espaço entre a grelha e o chat */
-    }
-
-
-    /* --- 3. O SEU CSS ORIGINAL (Estilos das Células) --- */
+    /* --------------------------------------------------------- */
+    
     /* Define a célula base do agendamento */
     .schedule-cell {
-        height: 50px;             /* Altura fixa para cada célula */
-        border-radius: 8px;       /* Bordas arredondadas */
-        display: flex;            /* Centraliza o conteúdo */
+        height: 50px;              /* Altura fixa para cada célula */
+        border-radius: 8px;        /* Bordas arredondadas */
+        display: flex;             /* Centraliza o conteúdo */
         align-items: center;
         justify-content: center;
-        margin-bottom: 5px;       /* Espaço entre as linhas */
+        margin-bottom: 5px;        /* Espaço entre as linhas */
         padding: 5px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); /* Sombra sutil */
     }
@@ -81,10 +59,10 @@ st.markdown("""
     .schedule-cell.disponivel { background-color: #28a745; } /* Verde */
     .schedule-cell.ocupado    { background-color: #dc3545; } /* Vermelho */
     .schedule-cell.almoco     { background-color: #ffc107; color: black;} /* Laranja */
-    .schedule-cell.indisponivel { background-color: #6c757d; } /* Cinza padrão */
-    .schedule-cell.fechado { background-color: #A9A9A9; color: black; } /* "Fechado" */
+    .schedule-cell.indisponivel { background-color: #6c757d; } /* Cinza padrão para indisponível (SDJ, Descanso) */
+    .schedule-cell.fechado { background-color: #A9A9A9; color: black; } /* Nova classe para "Fechado" */
 
-    /* Estiliza o botão dentro da célula */
+    /* Estiliza o botão dentro da célula para ser "invisível" mas clicável */
     .schedule-cell button {
         background-color: transparent;
         color: white;
@@ -94,13 +72,13 @@ st.markdown("""
         font-weight: bold;
     }
     
-    /* Para o texto do botão */
+    /* Para o texto do botão (que é um <p> dentro do botão do Streamlit) */
     .schedule-cell button p {
-        color: white;
+        color: white; /* Cor do texto para status verde e vermelho */
         margin: 0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        white-space: nowrap;      /* Impede a quebra de linha */
+        overflow: hidden;         /* Esconde o que passar do limite */
+        text-overflow: ellipsis;  /* Adiciona "..." ao final de texto longo */
     }
 
     /* Cor do texto específica para a célula de almoço */
@@ -767,11 +745,10 @@ elif st.session_state.view == 'fechar':
             st.session_state.view = 'agenda' # <-- Corrigido para 'agenda'
             st.rerun()
             
-# --- TELA PRINCIPAL (GRID DE AGENDAMENTOS) --
+# --- TELA PRINCIPAL (GRID DE AGENDAMENTOS) ---
 else:
-    # 1. TÍTULO, IMAGEM E DATA
-    #    (Removemos o 'components.html' hack, pois não é mais necessário)
     st.title("Barbearia Lucas Borges - Agendamentos Internos")
+    # Centraliza a logo
     cols_logo = st.columns([1, 2, 1])
     with cols_logo[1]:
         st.image("https://i.imgur.com/XVOXz8F.png", width=350)
@@ -782,215 +759,18 @@ else:
         min_value=datetime.today().date(),
         key="data_input"
     )
-    
-    # --- VARIÁVEIS DE DATA ---
-    # (Do seu código, linha 669)
-    data_obj = data_selecionada
-    data_str = data_obj.strftime('%d/%m/%Y')
 
-    # 2. EXPANDERS DE "FECHAR" E "DESBLOQUEAR"
-    #    (Do seu código, linha 681)
-    with st.expander("🔒 Fechar um Intervalo de Horários"):
-        with st.form("form_fechar_horario", clear_on_submit=True):
-            horarios_tabela_exp = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
-        
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                horario_inicio = st.selectbox("Início", options=horarios_tabela_exp, key="fecha_inicio")
-            with col2:
-                horario_fim = st.selectbox("Fim", options=horarios_tabela_exp, key="fecha_fim", index=len(horarios_tabela_exp)-1)
-            with col3:
-                barbeiro_fechar = st.selectbox("Barbeiro", options=barbeiros, key="fecha_barbeiro")
-
-            if st.form_submit_button("Confirmar Fechamento", use_container_width=True):
-                try:
-                    start_index = horarios_tabela_exp.index(horario_inicio)
-                    end_index = horarios_tabela_exp.index(horario_fim)
-                    if start_index > end_index:
-                        st.error("O horário de início deve ser anterior ao final.")
-                    else:
-                        horarios_para_fechar = horarios_tabela_exp[start_index:end_index+1]
-                        for horario in horarios_para_fechar:
-                            fechar_horario(data_obj, horario, barbeiro_fechar)
-                        st.success("Horários fechados com sucesso!")
-                        time.sleep(1)
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao fechar horários: {e}")
-
-    with st.expander("🔓 Desbloquear um Intervalo de Horários"):
-        with st.form("form_desbloquear_horario", clear_on_submit=True):
-            horarios_tabela_exp = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
-        
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                horario_inicio_desbloq = st.selectbox("Início", options=horarios_tabela_exp, key="desbloq_inicio")
-            with col2:
-                horario_fim_desbloq = st.selectbox("Fim", options=horarios_tabela_exp, key="desbloq_fim", index=len(horarios_tabela_exp)-1)
-            with col3:
-                barbeiro_desbloquear = st.selectbox("Barbeiro", options=barbeiros, key="desbloq_barbeiro")
-
-            if st.form_submit_button("Confirmar Desbloqueio", use_container_width=True):
-                horarios_para_desbloquear = horarios_tabela_exp[horarios_tabela_exp.index(horario_inicio_desbloq):horarios_tabela_exp.index(horario_fim_desbloq)+1]
-                for horario in horarios_para_desbloquear:
-                    desbloquear_horario_especifico(data_obj, horario, barbeiro_desbloquear)
-                st.success("Horários desbloqueados com sucesso!")
-                time.sleep(1)
-                st.rerun()
-
-    # 3. CARREGAMENTO DOS DADOS (ANTES da grelha)
-    #    (Do seu código, linha 745)
-    ocupados_map = buscar_agendamentos_do_dia(data_obj)
-    data_para_id = data_obj.strftime('%Y-%m-%d') 
-
-    # 4. CABEÇALHO DA TABELA (FORA da caixa de scroll)
-    #    (Do seu código, linha 749)
-    header_cols = st.columns([1.5, 3, 3])
-    header_cols[0].markdown("**Horário**")
-    for i, barbeiro in enumerate(barbeiros):
-        header_cols[i+1].markdown(f"### {barbeiro}")
-    
-    # 5. A NOVA CAIXA DE SCROLL (GRELHA VAI AQUI DENTRO)
-    #    (Esta é a Solução 5)
-    with st.container():
-        st.markdown('<div class="grelha-container">', unsafe_allow_html=True)
-
-        # 6. GERAÇÃO DO GRID INTERATIVO (DENTRO da caixa de scroll)
-        #    (Do seu código, linha 754)
-        horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
-
-        for horario in horarios_tabela:
-            grid_cols = st.columns([1.5, 3, 3])
-            grid_cols[0].markdown(f"#### {horario}")
-
-            for i, barbeiro in enumerate(barbeiros):
-                status = "disponivel"
-                texto_botao = "Disponível"
-                dados_agendamento = {}
-                is_clicavel = True
-
-                # --- LÓGICA SDJ ADICIONADA AQUI ---
-                dia_mes = data_obj.day
-                mes_ano = data_obj.month
-                dia_semana = data_obj.weekday() # 0=Segunda, 6=Domingo
-                is_intervalo_especial = (mes_ano == 7 and 10 <= dia_mes <= 19)
-                
-                hora_int = int(horario.split(':')[0])
-
-                # REGRA 0: DURANTE O INTERVALO ESPECIAL, QUASE TUDO É LIBERADO
-                if is_intervalo_especial:
-                    # Durante o intervalo, a única regra é verificar agendamentos no banco
-                    id_padrao = f"{data_para_id}_{horario}_{barbeiro}"
-                    id_bloqueado = f"{data_para_id}_{horario}_{barbeiro}_BLOQUEADO"
-                    if id_padrao in ocupados_map:
-                        dados_agendamento = ocupados_map[id_padrao]
-                        nome = dados_agendamento.get("nome", "Ocupado")
-                        status, texto_botao = ("fechado" if nome == "Fechado" else "ocupado"), nome
-                    elif id_bloqueado in ocupados_map:
-                        status, texto_botao, dados_agendamento = "ocupado", "Bloqueado", {"nome": "BLOQUEADO"}
-
-                # REGRAS PARA DIAS NORMAIS (FORA DO INTERVALO ESPECIAL)
-                else:
-                    # REGRA 1: Horários das 7h (SDJ)
-                    id_padrao = f"{data_para_id}_{horario}_{barbeiro}"
-                    id_bloqueado = f"{data_para_id}_{horario}_{barbeiro}_BLOQUEADO"
-
-                    if id_padrao in ocupados_map:
-                        dados_agendamento = ocupados_map[id_padrao]
-                        nome = dados_agendamento.get("nome", "Ocupado")
-                        # A verificação de "Fechado" agora acontece ANTES da regra de almoço.
-                        if nome == "Fechado":
-                            status, texto_botao, is_clicavel = "fechado", "Fechado", False
-                        elif nome == "Almoço": # Mantém a possibilidade de fechar como almoço em dias especiais
-                            status, texto_botao, is_clicavel = "almoco", "Almoço", False
-                        else: # Se for qualquer outro nome, é um agendamento normal
-                            status, texto_botao = "ocupado", nome
-
-                    elif id_bloqueado in ocupados_map:
-                        status, texto_botao, dados_agendamento = "ocupado", "Bloqueado", {"nome": "BLOQUEADO"}
-
-                    # 2. SE NÃO HOUVER NADA NO BANCO para este horário, aplicamos as regras fixas do sistema.
-                    elif horario in ["07:00", "07:30"]:
-                        status, texto_botao, is_clicavel = "indisponivel", "SDJ", False
-                    
-                    elif horario == "08:00" and barbeiro == "Lucas Borges":
-                        status, texto_botao, is_clicavel = "indisponivel", "Indisponível", False
-                    
-                    elif dia_semana == 6: # Domingo
-                        status, texto_botao, is_clicavel = "fechado", "Fechado", False
-
-                    elif dia_semana < 5 and hora_int in [12, 13]: # Almoço
-                         status, texto_botao, is_clicavel = "almoco", "Almoço", False
-
-                # --- SEU CÓDIGO ORIGINAL DE BOTÕES RESTAURADO E ADAPTADO ---
-                key = f"btn_{data_str}_{horario}_{barbeiro}"
-                with grid_cols[i+1]:
-                    if status == 'disponivel':
-                        cor_fundo = '#28a745'  # Verde
-                        # O 'texto_botao' e 'is_clicavel' já foram definidos antes, mas aqui garantimos o padrão
-                    elif status == 'ocupado':
-                        cor_fundo = '#dc3545'  # Vermelho
-                    elif status == 'almoco':
-                        cor_fundo = '#ffc107'  # Laranja/Amarelo
-                        is_clicavel = False # Garante que não é clicável
-                    elif status == 'indisponivel':
-                        cor_fundo = '#808080'  # Cinza
-                        is_clicavel = False # Garante que não é clicável
-                    elif status == 'fechado':
-                         cor_fundo = '#A9A9A9' # Cinza claro
-                         is_clicavel = False
-                    else: # Caso padrão
-                        cor_fundo = '#6c757d'
-                        is_clicavel = False
-                    
-                    cor_texto = "black" if status == "almoco" or status == "fechado" else "white"
-                    
-                    botao_html = f"""
-                        <button style='
-                            background-color: {cor_fundo}; color: {cor_texto}; border: none;
-                            border-radius: 6px; padding: 4px 8px; width: 100%; font-size: 12px;
-                            font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-                        ' onclick="document.getElementById('{key}').click()">{texto_botao}</button>
-                    """
-                    st.markdown(botao_html, unsafe_allow_html=True)
-                    st.markdown(f"<div style='text-align: center; font-size: 12px; color: #AAA;'>{barbeiro}</div>", unsafe_allow_html=True)
-
-                    # O botão invisível que aciona a lógica, com as chamadas CORRIGIDAS
-                    if st.button("", key=key, disabled=not is_clicavel):
-                        if status == 'disponivel':
-                            st.session_state.view = 'agendar'
-                            st.session_state.agendamento_info = {
-                                'data_obj': data_obj, # Passa o objeto de data
-                                'horario': horario,
-                                'barbeiro': barbeiro
-                            }
-                            st.rerun()
-                        elif status in ['ocupado', 'almoco', 'fechado']:
-                            st.session_state.view = 'cancelar'
-                            st.session_state.agendamento_info = {
-                                'data_obj': data_obj, # Passa o objeto de data
-                                'horario': horario,
-                                'barbeiro': barbeiro,
-                                'dados': dados_agendamento
-                            }
-                            st.rerun()
-        
-        # FIM DA GRELHA
-        st.markdown('</div>', unsafe_allow_html=True) # Fecha o .grelha-container
-    # Fim do st.container
-    
-    # 7. CHAT INPUT E MODAL (MOVIDOS PARA O FIM DA PÁGINA)
-    #    (Este é o seu código da linha 615, agora no sítio correto)
-    
-    # (Lógica do chat_error que corrigimos antes)
-    if st.session_state.chat_error:
-        st.error(st.session_state.chat_error, icon="🚨")
-
+    # --- PLANO D 2.0 (A "Melhor Experiência" com Microfone do Teclado) ---
+    # Esta barra de chat fica "colada" no rodapé da página.
     prompt = st.chat_input("Diga seu comando (Ex: Cliente às 10 com Lucas Borges)")
 
     if prompt:
-        st.session_state.chat_error = None # Limpa erro anterior
+        # --- INÍCIO DA CORREÇÃO ---
+        # 1. Limpamos qualquer erro anterior no momento que um NOVO prompt é enviado.
+        st.session_state.chat_error = None
+        # --- FIM DA CORREÇÃO ---
 
+        # O 'prompt' é o texto que o utilizador enviou (falado ou digitado)
         with st.spinner("Processando comando... 🧠"):
             dados = parsear_comando(prompt)
         
@@ -998,24 +778,38 @@ else:
             # SUCESSO! Envia para o Modal de Confirmação
             st.session_state.dados_voz = {
                 'nome': dados['nome'],
-                'horario': dados['horário'], # Chave sem acento (como corrigimos)
+                'horario': dados['horário'],
                 'barbeiro': dados['barbeiro'],
                 'data_obj': datetime.today().date() # Agenda sempre para HOJE
             }
+            # (Não precisamos mais limpar o erro aqui, já foi limpo no início)
             st.rerun() # Força o rerun para mostrar o modal
         else:
-            # O "Def Perardo" falhou
+            # --- INÍCIO DA CORREÇÃO ---
+            # 2. Em vez de chamar st.error() direto, salvamos a mensagem no estado.
             st.session_state.chat_error = "Não entendi o comando. Tente 'Nome às XX horas com Barbeiro'."
-            st.rerun() # Força o rerun para mostrar o erro
+            st.rerun() # Força o rerun para mostrar o erro e limpar o chat_input
+            # --- FIM DA CORREÇÃO ---
+
+    # --- INÍCIO DA CORREÇÃO ---
+    # 3. Exibimos o erro APENAS se ele estiver salvo no estado da sessão.
+    if st.session_state.chat_error:
+        st.error(st.session_state.chat_error, icon="🚨")
+    # --- FIM DA CORREÇÃO ---
+
 
     # --- MODAL DE CONFIRMAÇÃO DA VOZ (Do Plano D) ---
     if st.session_state.dados_voz:
-        st.session_state.chat_error = None # Garante limpeza do erro
+        # --- INÍCIO DA CORREÇÃO ---
+        # 4. Garantimos que, se o modal de sucesso/confirmação está visível,
+        #    qualquer erro de chat anterior é removido.
+        st.session_state.chat_error = None
+        # --- FIM DA CORREÇÃO ---
         
         try:
             dados = st.session_state.dados_voz
             nome = dados['nome']
-            horario = dados['horario'] # Leitura sem acento (como corrigimos)
+            horario = dados['horario']
             barbeiro = dados['barbeiro']
             data_obj = dados['data_obj']
 
@@ -1045,10 +839,200 @@ else:
                 st.rerun()
 
         except KeyError:
-            # Erro de digitação que corrigimos antes (horario vs horário)
+            # --- INÍCIO DA CORREÇÃO ---
+            # 5. Se der um erro raro de "KeyError", usamos o estado da sessão
             st.session_state.dados_voz = None
             st.session_state.chat_error = "Erro nos dados da sessão. Por favor, fale novamente."
-            st.rerun()
+            st.rerun() # Rerun para limpar o modal e mostrar o novo erro
+            # --- FIM DA CORREÇÃO ---
+            
+    # --- VARIÁVEIS DE DATA ---
+    # Usamos 'data_selecionada' como o nosso objeto de data principal
+    data_obj = data_selecionada
+    # Criamos a string 'DD/MM/AAAA' para usar nas chaves dos botões e exibição
+    data_str = data_obj.strftime('%d/%m/%Y')
+
+    # Botão para ir para a tela de fechar horários em lote
+    with st.expander("🔒 Fechar um Intervalo de Horários"):
+        with st.form("form_fechar_horario", clear_on_submit=True):
+            horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+        
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                horario_inicio = st.selectbox("Início", options=horarios_tabela, key="fecha_inicio")
+            with col2:
+                horario_fim = st.selectbox("Fim", options=horarios_tabela, key="fecha_fim", index=len(horarios_tabela)-1)
+            with col3:
+                barbeiro_fechar = st.selectbox("Barbeiro", options=barbeiros, key="fecha_barbeiro")
+
+            if st.form_submit_button("Confirmar Fechamento", use_container_width=True):
+                try:
+                    start_index = horarios_tabela.index(horario_inicio)
+                    end_index = horarios_tabela.index(horario_fim)
+                    if start_index > end_index:
+                        st.error("O horário de início deve ser anterior ao final.")
+                    else:
+                        horarios_para_fechar = horarios_tabela[start_index:end_index+1]
+                        for horario in horarios_para_fechar:
+                            fechar_horario(data_obj, horario, barbeiro_fechar)
+                        st.success("Horários fechados com sucesso!")
+                        time.sleep(1)
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao fechar horários: {e}")
+
+    with st.expander("🔓 Desbloquear um Intervalo de Horários"):
+        with st.form("form_desbloquear_horario", clear_on_submit=True):
+            horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+        
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                horario_inicio_desbloq = st.selectbox("Início", options=horarios_tabela, key="desbloq_inicio")
+            with col2:
+                horario_fim_desbloq = st.selectbox("Fim", options=horarios_tabela, key="desbloq_fim", index=len(horarios_tabela)-1)
+            with col3:
+                barbeiro_desbloquear = st.selectbox("Barbeiro", options=barbeiros, key="desbloq_barbeiro")
+
+            if st.form_submit_button("Confirmar Desbloqueio", use_container_width=True):
+                horarios_para_desbloquear = horarios_tabela[horarios_tabela.index(horario_inicio_desbloq):horarios_tabela.index(horario_fim_desbloq)+1]
+                for horario in horarios_para_desbloquear:
+                    desbloquear_horario_especifico(data_obj, horario, barbeiro_desbloquear)
+                st.success("Horários desbloqueados com sucesso!")
+                time.sleep(1)
+                st.rerun()
+
+    # --- OTIMIZAÇÃO DE CARREGAMENTO ---
+    # 1. Busca todos os dados do dia de uma só vez, antes de desenhar a tabela
+    ocupados_map = buscar_agendamentos_do_dia(data_obj)
+    data_para_id = data_obj.strftime('%Y-%m-%d') # Formato AAAA-MM-DD para checar os IDs
+
+    # Header da Tabela
+    header_cols = st.columns([1.5, 3, 3])
+    header_cols[0].markdown("**Horário**")
+    for i, barbeiro in enumerate(barbeiros):
+        header_cols[i+1].markdown(f"### {barbeiro}")
+    
+    # Geração do Grid Interativo
+    horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+
+    for horario in horarios_tabela:
+        grid_cols = st.columns([1.5, 3, 3])
+        grid_cols[0].markdown(f"#### {horario}")
+
+        for i, barbeiro in enumerate(barbeiros):
+            status = "disponivel"
+            texto_botao = "Disponível"
+            dados_agendamento = {}
+            is_clicavel = True
+
+            # --- LÓGICA SDJ ADICIONADA AQUI ---
+            dia_mes = data_obj.day
+            mes_ano = data_obj.month
+            dia_semana = data_obj.weekday() # 0=Segunda, 6=Domingo
+            is_intervalo_especial = (mes_ano == 7 and 10 <= dia_mes <= 19)
+            
+            hora_int = int(horario.split(':')[0])
+
+            # REGRA 0: DURANTE O INTERVALO ESPECIAL, QUASE TUDO É LIBERADO
+            if is_intervalo_especial:
+                # Durante o intervalo, a única regra é verificar agendamentos no banco
+                id_padrao = f"{data_para_id}_{horario}_{barbeiro}"
+                id_bloqueado = f"{data_para_id}_{horario}_{barbeiro}_BLOQUEADO"
+                if id_padrao in ocupados_map:
+                    dados_agendamento = ocupados_map[id_padrao]
+                    nome = dados_agendamento.get("nome", "Ocupado")
+                    status, texto_botao = ("fechado" if nome == "Fechado" else "ocupado"), nome
+                elif id_bloqueado in ocupados_map:
+                    status, texto_botao, dados_agendamento = "ocupado", "Bloqueado", {"nome": "BLOQUEADO"}
+
+            # REGRAS PARA DIAS NORMAIS (FORA DO INTERVALO ESPECIAL)
+            else:
+                # REGRA 1: Horários das 7h (SDJ)
+                id_padrao = f"{data_para_id}_{horario}_{barbeiro}"
+                id_bloqueado = f"{data_para_id}_{horario}_{barbeiro}_BLOQUEADO"
+
+                if id_padrao in ocupados_map:
+                    dados_agendamento = ocupados_map[id_padrao]
+                    nome = dados_agendamento.get("nome", "Ocupado")
+                    # A verificação de "Fechado" agora acontece ANTES da regra de almoço.
+                    if nome == "Fechado":
+                        status, texto_botao, is_clicavel = "fechado", "Fechado", False
+                    elif nome == "Almoço": # Mantém a possibilidade de fechar como almoço em dias especiais
+                        status, texto_botao, is_clicavel = "almoco", "Almoço", False
+                    else: # Se for qualquer outro nome, é um agendamento normal
+                        status, texto_botao = "ocupado", nome
+
+                elif id_bloqueado in ocupados_map:
+                    status, texto_botao, dados_agendamento = "ocupado", "Bloqueado", {"nome": "BLOQUEADO"}
+
+                # 2. SE NÃO HOUVER NADA NO BANCO para este horário, aplicamos as regras fixas do sistema.
+                elif horario in ["07:00", "07:30"]:
+                    status, texto_botao, is_clicavel = "indisponivel", "SDJ", False
+                
+                elif horario == "08:00" and barbeiro == "Lucas Borges":
+                    status, texto_botao, is_clicavel = "indisponivel", "Indisponível", False
+                
+                elif dia_semana == 6: # Domingo
+                    status, texto_botao, is_clicavel = "fechado", "Fechado", False
+
+                elif dia_semana < 5 and hora_int in [12, 13]: # Almoço
+                     status, texto_botao, is_clicavel = "almoco", "Almoço", False
+
+            # --- SEU CÓDIGO ORIGINAL DE BOTÕES RESTAURADO E ADAPTADO ---
+            key = f"btn_{data_str}_{horario}_{barbeiro}"
+            with grid_cols[i+1]:
+                if status == 'disponivel':
+                    cor_fundo = '#28a745'  # Verde
+                    # O 'texto_botao' e 'is_clicavel' já foram definidos antes, mas aqui garantimos o padrão
+                elif status == 'ocupado':
+                    cor_fundo = '#dc3545'  # Vermelho
+                elif status == 'almoco':
+                    cor_fundo = '#ffc107'  # Laranja/Amarelo
+                    is_clicavel = False # Garante que não é clicável
+                elif status == 'indisponivel':
+                    cor_fundo = '#808080'  # Cinza
+                    is_clicavel = False # Garante que não é clicável
+                elif status == 'fechado':
+                     cor_fundo = '#A9A9A9' # Cinza claro
+                     is_clicavel = False
+                else: # Caso padrão
+                    cor_fundo = '#6c757d'
+                    is_clicavel = False
+                
+                cor_texto = "black" if status == "almoco" or status == "fechado" else "white"
+                
+                botao_html = f"""
+                    <button style='
+                        background-color: {cor_fundo}; color: {cor_texto}; border: none;
+                        border-radius: 6px; padding: 4px 8px; width: 100%; font-size: 12px;
+                        font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                    ' onclick="document.getElementById('{key}').click()">{texto_botao}</button>
+                """
+                st.markdown(botao_html, unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align: center; font-size: 12px; color: #AAA;'>{barbeiro}</div>", unsafe_allow_html=True)
+
+                # O botão invisível que aciona a lógica, com as chamadas CORRIGIDAS
+                if st.button("", key=key, disabled=not is_clicavel):
+                    if status == 'disponivel':
+                        st.session_state.view = 'agendar'
+                        st.session_state.agendamento_info = {
+                            'data_obj': data_obj, # Passa o objeto de data
+                            'horario': horario,
+                            'barbeiro': barbeiro
+                        }
+                        st.rerun()
+                    elif status in ['ocupado', 'almoco', 'fechado']:
+                        st.session_state.view = 'cancelar'
+                        st.session_state.agendamento_info = {
+                            'data_obj': data_obj, # Passa o objeto de data
+                            'horario': horario,
+                            'barbeiro': barbeiro,
+                            'dados': dados_agendamento
+                        }
+                        st.rerun()
+                        
+
+
 
 
 
