@@ -366,15 +366,15 @@ def remover_foco_chat():
                 var chatInput = window.parent.document.querySelector(
                     'textarea[data-testid="stChatInputTextArea"]'
                 );
-
+                
                 if (chatInput) {{
                     // 2. Tira o foco do elemento
                     chatInput.blur();
-                }
+                }}  /* <-- CORRIGIDO (fechamento do if) */
             }} catch (e) {{
                 // Ignora erros (caso o elemento não seja encontrado)
-            }}
-        }}, 50);
+            }}  /* <-- CORRIGIDO (fechamento do try/catch) */
+        }}, 50); /* <-- CORRIGIDO (fechamento do setTimeout) */
         </script>
         """,
         height=0, # O componente HTML não precisa ter altura visível
@@ -1063,6 +1063,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
