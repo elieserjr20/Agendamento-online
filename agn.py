@@ -350,6 +350,36 @@ def desbloquear_horario_especifico(data_obj, horario, barbeiro):
         st.error(f"Erro ao tentar desbloquear horário: {e}")
         return False
         
+def remover_foco_chat():
+    """
+    Executa um JS para 'escapar' do iframe do componente
+    e remover o foco (blur) do st.chat_input na página principal.
+    """
+    # Damos um 'delay' de 50ms para garantir que o chat_input
+    # já foi renderizado pelo Streamlit após o rerun.
+    components.v1.html(
+        f"""
+        <script>
+        setTimeout(function() {{
+            try {{
+                // 1. A 'mágica': window.parent.document acede à página principal
+                var chatInput = window.parent.document.querySelector(
+                    'textarea[data-testid="stChatInputTextArea"]'
+                );
+
+                if (chatInput) {{
+                    // 2. Tira o foco do elemento
+                    chatInput.blur();
+                }
+            }} catch (e) {{
+                // Ignora erros (caso o elemento não seja encontrado)
+            }}
+        }}, 50);
+        </script>
+        """,
+        height=0, # O componente HTML não precisa ter altura visível
+    )
+        
 def remover_acentos(s):
     """
     Remove acentos de uma string, convertendo-a para uma forma 
@@ -764,6 +794,8 @@ else:
     # Esta barra de chat fica "colada" no rodapé da página.
     prompt = st.chat_input("Diga seu comando (Ex: Cliente às 10 com Lucas Borges)")
 
+    remover_foco_chat()
+
     if prompt:
         # --- INÍCIO DA CORREÇÃO ---
         # 1. Limpamos qualquer erro anterior no momento que um NOVO prompt é enviado.
@@ -1031,6 +1063,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
