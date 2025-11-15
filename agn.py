@@ -794,15 +794,14 @@ else:
     # --- INÍCIO DA CORREÇÃO ---
     # 3. Exibimos o erro APENAS se ele estiver salvo no estado da sessão.
     if st.session_state.chat_error:
+        st.markdown("<script>window.scrollTo(0, 0);</script>", unsafe_allow_html=True)
         st.error(st.session_state.chat_error, icon="🚨")
     # --- FIM DA CORREÇÃO ---
 
 
     # --- MODAL DE CONFIRMAÇÃO DA VOZ (Do Plano D) ---
     if st.session_state.dados_voz:
-        # --- INÍCIO DA CORREÇÃO ---
-        # 4. Garantimos que, se o modal de sucesso/confirmação está visível,
-        #    qualquer erro de chat anterior é removido.
+        st.markdown("<script>window.scrollTo(0, 0);</script>", unsafe_allow_html=True)
         st.session_state.chat_error = None
         # --- FIM DA CORREÇÃO ---
         
@@ -1031,6 +1030,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
