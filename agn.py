@@ -680,6 +680,58 @@ elif st.session_state.view == 'cancelar':
     if cols[1].button("⬅️ Voltar para a Agenda", use_container_width=True):
         st.session_state.view = 'agenda'
         st.rerun()
+        
+elif st.session_state.view == 'confirmar_chat':
+    st.header("Confirmar Agendamento por Chat/Voz?")
+    
+    try:
+        # 1. Buscamos os dados do 'confirmacao_chat_info' (que salvamos no Passo 1)
+        dados = st.session_state.confirmacao_chat_info
+        nome = dados['nome']
+        horario = dados['horario']
+        barbeiro = dados['barbeiro']
+        data_obj = dados['data_obj']
+
+        st.subheader(f"🗓️ Data: {data_obj.strftime('%d/%m/%Y')}")
+
+        # Usamos um container para ficar visualmente parecido com os outros modais
+        with st.container(border=True):
+            st.write(f"**Cliente:** `{nome}`")
+            st.write(f"**Horário:** `{horario}`")
+            st.write(f"**Barbeiro:** `{barbeiro}`")
+        
+        st.markdown("---")
+        
+        col_confirm, col_cancel = st.columns(2)
+        
+        if col_confirm.button("✅ Confirmar Agendamento", key="btn_confirm_chat", type="primary", use_container_width=True):
+            # Lógica de salvar (a mesma que você já tinha)
+            if salvar_agendamento(data_obj, horario, nome, "INTERNO (Voz)", ["(Voz)"], barbeiro, is_bloqueio=False):
+                st.success(f"Agendado! {nome} às {horario} com {barbeiro}.")
+                st.balloons()
+                st.cache_data.clear()
+                
+                # 2. Limpa os dados e VOLTA PARA A AGENDA
+                st.session_state.confirmacao_chat_info = None
+                st.session_state.view = 'agenda' 
+                time.sleep(2)
+                st.rerun()
+            else:
+                st.error("Falha ao salvar no banco de dados. O horário pode estar ocupado.")
+
+        if col_cancel.button("❌ Cancelar (Voltar para Agenda)", key="btn_cancel_chat", use_container_width=True):
+            # 3. Apenas limpa os dados e VOLTA PARA A AGENDA
+            st.session_state.confirmacao_chat_info = None
+            st.session_state.view = 'agenda'
+            st.rerun()
+
+    except (KeyError, TypeError):
+        # Se algo der errado (ex: usuário recarregou a página com F5)
+        st.error("Erro nos dados da sessão. Voltando para a agenda...")
+        st.session_state.confirmacao_chat_info = None
+        st.session_state.view = 'agenda'
+        time.sleep(2)
+        st.rerun()
 
 # ---- NOVO MODAL PARA FECHAR HORÁRIOS ----
 elif st.session_state.view == 'fechar':
@@ -772,88 +824,43 @@ else:
     prompt = st.chat_input("Diga seu comando (Ex: Cliente às 10 com Lucas Borges)")
 
     if prompt:
-        # --- INÍCIO DA CORREÇÃO ---
         # 1. Limpamos qualquer erro anterior no momento que um NOVO prompt é enviado.
         st.session_state.chat_error = None
-        # --- FIM DA CORREÇÃO ---
+        st.session_state.dados_voz = None # Limpamos o modal antigo (se houver)
 
         # O 'prompt' é o texto que o utilizador enviou (falado ou digitado)
         with st.spinner("Processando comando... 🧠"):
-            dados = parsear_comando(prompt)
+            dados = parsear_comando(prompt) # (Verificado o nome da função!)
         
         if dados:
-            # SUCESSO! Envia para o Modal de Confirmação
-            st.session_state.dados_voz = {
+            # --- MUDANÇA PARA O MODAL (SUCESSO) ---
+            # SUCESSO! Em vez de 'dados_voz', salvamos em 'confirmacao_chat_info'
+            st.session_state.confirmacao_chat_info = {
                 'nome': dados['nome'],
                 'horario': dados['horário'],
                 'barbeiro': dados['barbeiro'],
                 'data_obj': datetime.today().date() # Agenda sempre para HOJE
             }
-            
-            # --- (MUDANÇA PRINCIPAL) ATIVA A FLAG DE SCROLL ---
-            st.session_state.scroll_to_top = True
-            st.rerun() # Força o rerun para mostrar o modal
+            # E mudamos a VIEW para a nova tela
+            st.session_state.view = 'confirmar_chat'
+            st.rerun() # Força o rerun para mostrar a NOVA TELA
+            # --- FIM DA MUDANÇA ---
         else:
-            # --- INÍCIO DA CORREÇÃO ---
+            # --- (MANTIDO) ERRO USA A ÂNCORA ---
             # 2. Em vez de chamar st.error() direto, salvamos a mensagem no estado.
             st.session_state.chat_error = "Não entendi o comando. Tente 'Nome às XX horas com Barbeiro'."
             
-            # --- (MUDANÇA PRINCIPAL) ATIVA A FLAG DE SCROLL ---
+            # (Mantemos a lógica da âncora para o ERRO)
             st.session_state.scroll_to_top = True
-            st.rerun() # Força o rerun para mostrar o erro e limpar o chat_input
-            # --- FIM DA CORREÇÃO ---
-
+            st.rerun() # Força o rerun para mostrar o erro
+            # --- FIM DA MANUTENÇÃO ---
+    
     # --- INÍCIO DA CORREÇÃO ---
     # 3. Exibimos o erro APENAS se ele estiver salvo no estado da sessão.
     if st.session_state.chat_error:
         st.error(st.session_state.chat_error, icon="🚨")
     # --- FIM DA CORREÇÃO ---
 
-
-    # --- MODAL DE CONFIRMAÇÃO DA VOZ (Do Plano D) ---
-    if st.session_state.dados_voz:
-        st.session_state.chat_error = None
-        # --- FIM DA CORREÇÃO ---
-        
-        try:
-            dados = st.session_state.dados_voz
-            nome = dados['nome']
-            horario = dados['horario']
-            barbeiro = dados['barbeiro']
-            data_obj = dados['data_obj']
-
-            st.markdown("---")
-            st.subheader("Confirmar Agendamento por Voz?")
-            st.write(f"**Cliente:** `{nome}`")
-            st.write(f"**Horário:** `{horario}`")
-            st.write(f"**Barbeiro:** `{barbeiro}`")
-            st.write(f"**Data:** `{data_obj.strftime('%d/%m/%Y')}`")
-            
-            col_confirm, col_cancel = st.columns(2)
-            
-            if col_confirm.button("✅ Confirmar", key="btn_confirm_voz", type="primary", use_container_width=True):
-                # (Lógica de verificação de disponibilidade)
-                if salvar_agendamento(data_obj, horario, nome, "INTERNO (Voz)", ["(Voz)"], barbeiro, is_bloqueio=False):
-                    st.success(f"Agendado! {nome} às {horario} com {barbeiro}.")
-                    st.balloons()
-                    st.cache_data.clear()
-                    st.session_state.dados_voz = None
-                    time.sleep(2)
-                    st.rerun()
-                else:
-                    st.error("Falha ao salvar no banco de dados.")
-
-            if col_cancel.button("❌ Cancelar", key="btn_cancel_voz", use_container_width=True):
-                st.session_state.dados_voz = None
-                st.rerun()
-
-        except KeyError:
-            # --- INÍCIO DA CORREÇÃO ---
-            # 5. Se der um erro raro de "KeyError", usamos o estado da sessão
-            st.session_state.dados_voz = None
-            st.session_state.chat_error = "Erro nos dados da sessão. Por favor, fale novamente."
-            st.rerun() # Rerun para limpar o modal e mostrar o novo erro
-            # --- FIM DA CORREÇÃO ---
             
     # --- VARIÁVEIS DE DATA ---
     # Usamos 'data_selecionada' como o nosso objeto de data principal
@@ -1040,6 +1047,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
