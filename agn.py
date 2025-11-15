@@ -35,22 +35,44 @@ st.set_page_config(
 
 # CSS customizado para colorir os botões da tabela e centralizar o texto
 # CSS customizado para criar uma grade de agendamentos visual e responsiva
+# Coloque isto logo após o st.set_page_config
 st.markdown("""
 <style>
-    /* --- CÓDIGO ADICIONADO PARA REMOVER O ESPAÇO NO TOPO --- */
+
+    /* --- 1. O SEU CSS ORIGINAL (Ajuste do topo) --- */
     div.block-container {
-        padding-top: 1.5rem; /* Ajuste este valor se necessário, ex: 0.5rem ou 0rem */
+        padding-top: 1.5rem; /* Ajuste este valor se necessário */
     }
-    /* --------------------------------------------------------- */
-    
+
+    /* --- 2. O NOVO "MOLDE" DA GRELHA (A SOLUÇÃO) --- */
+    /* Define a caixa que terá a barra de scroll própria */
+    .grelha-container {
+        /* * Define uma altura fixa. 70vh = 70% da altura da janela.
+         * Pode ajustar este valor (ex: 75vh ou 65vh)
+         * para ver o que fica melhor no telemóvel.
+        */
+        height: 70vh; 
+        
+        /* A MÁGICA: Adiciona a barra de scroll SÓ AQUI */
+        overflow-y: auto; 
+        
+        /* Estética (opcional, para ver a caixa) */
+        border: 1px solid #333; /* Borda suave */
+        border-radius: 8px;
+        padding: 10px; /* Espaço interno */
+        margin-bottom: 1rem; /* Espaço entre a grelha e o chat */
+    }
+
+
+    /* --- 3. O SEU CSS ORIGINAL (Estilos das Células) --- */
     /* Define a célula base do agendamento */
     .schedule-cell {
-        height: 50px;              /* Altura fixa para cada célula */
-        border-radius: 8px;        /* Bordas arredondadas */
-        display: flex;             /* Centraliza o conteúdo */
+        height: 50px;             /* Altura fixa para cada célula */
+        border-radius: 8px;       /* Bordas arredondadas */
+        display: flex;            /* Centraliza o conteúdo */
         align-items: center;
         justify-content: center;
-        margin-bottom: 5px;        /* Espaço entre as linhas */
+        margin-bottom: 5px;       /* Espaço entre as linhas */
         padding: 5px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); /* Sombra sutil */
     }
@@ -59,10 +81,10 @@ st.markdown("""
     .schedule-cell.disponivel { background-color: #28a745; } /* Verde */
     .schedule-cell.ocupado    { background-color: #dc3545; } /* Vermelho */
     .schedule-cell.almoco     { background-color: #ffc107; color: black;} /* Laranja */
-    .schedule-cell.indisponivel { background-color: #6c757d; } /* Cinza padrão para indisponível (SDJ, Descanso) */
-    .schedule-cell.fechado { background-color: #A9A9A9; color: black; } /* Nova classe para "Fechado" */
+    .schedule-cell.indisponivel { background-color: #6c757d; } /* Cinza padrão */
+    .schedule-cell.fechado { background-color: #A9A9A9; color: black; } /* "Fechado" */
 
-    /* Estiliza o botão dentro da célula para ser "invisível" mas clicável */
+    /* Estiliza o botão dentro da célula */
     .schedule-cell button {
         background-color: transparent;
         color: white;
@@ -72,13 +94,13 @@ st.markdown("""
         font-weight: bold;
     }
     
-    /* Para o texto do botão (que é um <p> dentro do botão do Streamlit) */
+    /* Para o texto do botão */
     .schedule-cell button p {
-        color: white; /* Cor do texto para status verde e vermelho */
+        color: white;
         margin: 0;
-        white-space: nowrap;      /* Impede a quebra de linha */
-        overflow: hidden;         /* Esconde o que passar do limite */
-        text-overflow: ellipsis;  /* Adiciona "..." ao final de texto longo */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     /* Cor do texto específica para a célula de almoço */
@@ -1031,6 +1053,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
