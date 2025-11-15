@@ -33,6 +33,8 @@ st.set_page_config(
     layout="wide" # ou "wide", como preferir
 )
 
+st.markdown("<a id='top_anchor'></a>", unsafe_allow_html=True)
+
 # CSS customizado para colorir os botões da tabela e centralizar o texto
 # CSS customizado para criar uma grade de agendamentos visual e responsiva
 st.markdown("""
@@ -747,6 +749,11 @@ elif st.session_state.view == 'fechar':
             
 # --- TELA PRINCIPAL (GRID DE AGENDAMENTOS) ---
 else:
+    if st.session_state.get('scroll_to_top', False):
+        # Usamos um link de âncora, que é 100% confiável
+        st.markdown("<script>window.location.href = '#top_anchor';</script>", unsafe_allow_html=True)
+        st.session_state.scroll_to_top = False # Limpa a flag para não rodar de novo
+    # --- FIM DA ADIÇÃO ---
     st.title("Barbearia Lucas Borges - Agendamentos Internos")
     # Centraliza a logo
     cols_logo = st.columns([1, 2, 1])
@@ -772,7 +779,7 @@ else:
 
         # O 'prompt' é o texto que o utilizador enviou (falado ou digitado)
         with st.spinner("Processando comando... 🧠"):
-            dados = parsear_comando(prompt)
+            dados = parse_ar_comando(prompt)
         
         if dados:
             # SUCESSO! Envia para o Modal de Confirmação
@@ -782,12 +789,17 @@ else:
                 'barbeiro': dados['barbeiro'],
                 'data_obj': datetime.today().date() # Agenda sempre para HOJE
             }
-            # (Não precisamos mais limpar o erro aqui, já foi limpo no início)
+            
+            # --- (MUDANÇA PRINCIPAL) ATIVA A FLAG DE SCROLL ---
+            st.session_state.scroll_to_top = True
             st.rerun() # Força o rerun para mostrar o modal
         else:
             # --- INÍCIO DA CORREÇÃO ---
             # 2. Em vez de chamar st.error() direto, salvamos a mensagem no estado.
             st.session_state.chat_error = "Não entendi o comando. Tente 'Nome às XX horas com Barbeiro'."
+            
+            # --- (MUDANÇA PRINCIPAL) ATIVA A FLAG DE SCROLL ---
+            st.session_state.scroll_to_top = True
             st.rerun() # Força o rerun para mostrar o erro e limpar o chat_input
             # --- FIM DA CORREÇÃO ---
 
@@ -1030,6 +1042,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
