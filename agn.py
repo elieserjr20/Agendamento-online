@@ -827,7 +827,7 @@ else:
     # Centraliza a logo
     cols_logo = st.columns([1, 2, 1])
     with cols_logo[1]:
-        st.image("https://i.imgur.com/XVOXz8F.png", width=350)
+        st.image("https://i.imgur.com/dT3icWt.png", width=350)
 
     data_selecionada = st.date_input(
         "Selecione a data para visualizar",
@@ -1064,6 +1064,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
