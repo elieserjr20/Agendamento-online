@@ -12,6 +12,7 @@ from sib_api_v3_sdk.rest import ApiException
 import re
 import unicodedata
 import streamlit.components.v1 as components
+import base64
 
 # --- DEFINIÇÃO DE CAMINHOS SEGUROS (PARA O FAVICON) ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -32,6 +33,147 @@ st.set_page_config(
     page_icon=favicon,
     layout="wide" # ou "wide", como preferir
 )
+def aplicar_tema_natal():
+    # --- 1. CARREGAR IMAGEM DO GORRO (LOCAL) ---
+    gorro_path = os.path.join(STATIC_DIR, "gorro.png")
+    gorro_src = ""
+    
+    # Verifica se o arquivo existe e converte para Base64
+    if os.path.exists(gorro_path):
+        with open(gorro_path, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode()
+        gorro_src = f"data:image/png;base64,{encoded_string}"
+    else:
+        # Se não encontrar, usa o Emoji como backup para não quebrar
+        gorro_src = "" 
+
+    # --- 2. DEFINIR O CONTEÚDO HTML DO GORRO ---
+    # Se achou a imagem, usa a tag <img>, se não, usa emoji ou nada
+    html_gorro = ""
+    if gorro_src:
+        html_gorro = f'<img src="{gorro_src}" class="santa-hat">'
+    else:
+        # Backup caso esqueças de colocar a imagem
+        html_gorro = '<div class="santa-hat-emoji">🎅</div>'
+
+    # --- 3. CSS E ESTILOS ---
+    st.markdown(f"""
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@700&display=swap');
+
+            /* --- ANIMAÇÃO DE NEVE --- */
+            @keyframes snow {{
+                0% {{ transform: translateY(-100px); opacity: 0; }}
+                20% {{ opacity: 1; }}
+                100% {{ transform: translateY(100vh); opacity: 0.3; }}
+            }}
+            
+            .snowflake {{
+                position: fixed;
+                top: -10px;
+                color: #FFF;
+                font-size: 1em;
+                font-family: Arial;
+                text-shadow: 0 0 1px #000;
+                animation: snow linear infinite;
+                z-index: 9999;
+                pointer-events: none;
+            }}
+
+            /* --- MARCA D'ÁGUA --- */
+            .christmas-watermark {{
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                z-index: 0;
+                text-align: center;
+                pointer-events: none;
+                width: 100%;
+            }}
+
+            .christmas-tree {{
+                font-size: 25rem;
+                line-height: 1;
+                position: relative;
+                display: inline-block;
+                opacity: 0.15; /* Árvore Transparente */
+            }}
+
+            /* --- O GORRO (IMAGEM) --- */
+            .santa-hat {{
+                position: absolute;
+                top: -80px;      /* Ajuste a altura conforme a tua imagem */
+                left: 50%;       
+                transform: translateX(-50%) rotate(10deg);
+                width: 200px;    /* Ajuste a largura conforme a tua imagem */
+                z-index: 10;
+                opacity: 1 !important; /* Gorro bem visível */
+                filter: drop-shadow(0 0 5px rgba(0,0,0,0.3));
+            }}
+
+            /* Backup do emoji caso não tenha imagem */
+            .santa-hat-emoji {{
+                position: absolute;
+                top: -20px;
+                right: 20px;
+                font-size: 8rem;
+                opacity: 1 !important;
+            }}
+
+            .christmas-text {{
+                font-family: 'Mountains of Christmas', cursive;
+                font-size: 6rem;
+                color: #CD5C5C; 
+                font-weight: bold;
+                margin-top: -50px;
+                opacity: 0.3;
+            }}
+
+            /* Mobile */
+            @media (max-width: 600px) {{
+                .christmas-tree {{ font-size: 18rem; }}
+                .santa-hat {{ width: 120px; top: -50px; }}
+                .christmas-text {{ font-size: 4rem; margin-top: -40px; }}
+            }}
+
+            /* --- CORES --- */
+            .stButton > button[kind="primary"], .stFormSubmitButton > button {{
+                background-color: #2E8B57 !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 10px;
+            }}
+            .stButton > button[kind="secondary"] {{
+                background-color: #CD5C5C !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 10px;
+            }}
+            [data-testid="stMetricValue"] {{ color: #DAA520 !important; font-weight: bold; }}
+            [data-testid="stMetricLabel"], h1, h2, h3 {{ color: #C5A059 !important; }}
+            .stTabs [aria-selected="true"] {{ color: #2E8B57 !important; border-top-color: #2E8B57 !important; }}
+
+        </style>
+        
+        <div class="christmas-watermark">
+            <div class="christmas-tree">
+                {html_gorro} 🎄
+            </div>
+            <div class="christmas-text">Feliz Natal</div>
+        </div>
+
+        <div class="snowflake" style="left: 10%; animation-duration: 10s; animation-delay: 0s;">❄</div>
+        <div class="snowflake" style="left: 20%; animation-duration: 12s; animation-delay: 1s;">❅</div>
+        <div class="snowflake" style="left: 30%; animation-duration: 8s; animation-delay: 2s;">❆</div>
+        <div class="snowflake" style="left: 50%; animation-duration: 13s; animation-delay: 3s;">❅</div>
+        <div class="snowflake" style="left: 70%; animation-duration: 14s; animation-delay: 2s;">❄</div>
+        <div class="snowflake" style="left: 90%; animation-duration: 12s; animation-delay: 1s;">❄</div>
+    """, unsafe_allow_html=True)
+    
+# APLICAR O TEMA AQUI:
+aplicar_tema_natal()
+
 
 st.markdown("<a id='top_anchor'></a>", unsafe_allow_html=True)
 
@@ -1064,6 +1206,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
