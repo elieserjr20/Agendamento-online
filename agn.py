@@ -1104,7 +1104,7 @@ else:
             dia_mes = data_obj.day
             mes_ano = data_obj.month
             dia_semana = data_obj.weekday() # 0=Segunda, 6=Domingo
-            is_intervalo_especial = (mes_ano == 7 and 10 <= dia_mes <= 19)
+            is_intervalo_especial = (mes_ano == 12 and dia_mes == 14)
             
             hora_int = int(horario.split(':')[0])
 
@@ -1206,6 +1206,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
