@@ -1081,10 +1081,9 @@ else:
     ocupados_map = buscar_agendamentos_do_dia(data_obj)
     data_para_id = data_obj.strftime('%Y-%m-%d') # Formato AAAA-MM-DD para checar os IDs
 
-    # --- NOVO: RADAR DE VAGAS (Resumo no Topo) ---
-    # Geramos a lista de horários para análise
+    # --- NOVO: RADAR DE VAGAS (Com Fuso Horário Corrigido) ---
     horarios_analise = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
-    horarios_com_vagas = [] # Guarda tuplas: (horario, [lista_de_nomes])
+    horarios_com_vagas = [] 
 
     # Variáveis auxiliares
     dia_mes = data_obj.day
@@ -1092,19 +1091,27 @@ else:
     dia_semana = data_obj.weekday()
     is_intervalo_especial = (mes_ano == 12 and dia_mes == 14)
     
-    eh_hoje = data_obj == datetime.today().date()
-    hora_atual_dt = datetime.now()
+    # --- CORREÇÃO DE FUSO HORÁRIO (CRUCIAL) ---
+    # Pegamos a hora do servidor e subtraímos 3h para simular o Brasil (UTC-3)
+    # Isso impede que horários futuros (ex: 10:30) sejam bloqueados às 08:00
+    agora_servidor = datetime.now()
+    hora_atual_br = agora_servidor - timedelta(hours=3)
+    
+    eh_hoje = data_obj == hora_atual_br.date()
 
     for horario in horarios_analise:
-        nomes_livres = [] # Lista para guardar QUEM está livre
+        nomes_livres = [] 
         
         hora_int = int(horario.split(':')[0])
         minuto_int = int(horario.split(':')[1])
         
-        # Filtro de passado (se for hoje)
+        # Filtro de passado (se for hoje, usamos a hora ajustada do Brasil)
         if eh_hoje:
-            hora_analise_dt = datetime.now().replace(hour=hora_int, minute=minuto_int, second=0, microsecond=0)
-            if hora_analise_dt < hora_atual_dt:
+            # Cria a data/hora do agendamento baseada na data ajustada
+            hora_analise_dt = hora_atual_br.replace(hour=hora_int, minute=minuto_int, second=0, microsecond=0)
+            
+            # Se a hora da vaga for menor que a hora atual (Brasil), pula
+            if hora_analise_dt < hora_atual_br:
                 continue
 
         for barbeiro in barbeiros:
@@ -1123,7 +1130,7 @@ else:
                     status_temp = "ocupado"
                 elif horario in ["07:00", "07:30"]:
                     status_temp = "indisponivel"
-                # AJUSTE: Verifica se "Lucas" faz parte do nome (ex: "Lucas" ou "Lucas Borges")
+                # Verifica Lucas
                 elif horario == "08:00" and "Lucas" in barbeiro:
                     status_temp = "indisponivel"
                 elif dia_semana == 6: 
@@ -1131,37 +1138,31 @@ else:
                 elif dia_semana < 5 and hora_int in [12, 13]: 
                     status_temp = "almoco"
 
-            # Se estiver livre, adiciona o nome à lista
             if status_temp == "disponivel":
                 nomes_livres.append(barbeiro)
         
-        # Se houver alguém livre, guarda o horário e a lista
         if nomes_livres:
             horarios_com_vagas.append((horario, nomes_livres))
 
     # --- EXIBIÇÃO VISUAL ---
     with st.expander(f"🔍 Ver horários disponíveis ({len(horarios_com_vagas)} encontrados)", expanded=False):
         if horarios_com_vagas:
-            st.write("Legenda: 🟩 Ambos Livres | 🟨 Apenas 1 vaga Disponível")
+            st.write("Legenda: 🟩 Ambos Livres | 🟨 Última vaga (com nome)")
             
             html_final = '<div style="display: flex; flex-wrap: wrap; gap: 5px;">'
             
             for h, lista_nomes in horarios_com_vagas:
-                # Se todos os barbeiros (2) estão livres
                 if len(lista_nomes) == len(barbeiros):
                     bg_color = "#2E8B57" # Verde
                     title_text = "Ambos os barbeiros livres"
                     texto_badge = h 
                 else:
-                    # Apenas 1 livre (Lucas ou Aluízio)
                     bg_color = "#DAA520" # Dourado
                     nome_completo = lista_nomes[0]
-                    primeiro_nome = nome_completo.split()[0] # Pega "Lucas" ou "Aluízio"
+                    primeiro_nome = nome_completo.split()[0] 
                     title_text = f"Vaga apenas com {nome_completo}"
-                    # Badge com Hora + Nome
                     texto_badge = f'''{h} <span style="font-size: 0.85em; opacity: 0.9;">• {primeiro_nome}</span>'''
 
-                # HTML numa linha única com aspas simples triplas
                 html_final += f'''<div style="background-color: {bg_color}; color: white; padding: 5px 12px; margin: 3px; border-radius: 15px; font-weight: bold; border: 1px solid white; display: inline-block; cursor: default;" title="{title_text}">{texto_badge}</div>'''
             
             html_final += '</div>'
@@ -1296,6 +1297,7 @@ else:
                             'dados': dados_agendamento
                         }
                         st.rerun()
+
 
 
 
