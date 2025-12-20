@@ -57,7 +57,7 @@ def aplicar_tema_natal():
         html_gorro = '<div class="santa-hat-emoji">🎅</div>'
 
     # --- 3. CSS E ESTILOS ---
-   st.markdown(f"""
+    st.markdown(f"""
     <style>
         /* --- AJUSTE DE MARGENS (MOBILE) --- */
         div.block-container {{
@@ -1095,5 +1095,6 @@ else:
                             'dados': dados_agendamento
                         }
                         st.rerun()
+
 
 
