@@ -1010,7 +1010,7 @@ else:
     cols_head[2].markdown(f"<div class='header-cell'>{barbeiros[1]}</div>", unsafe_allow_html=True)
 
     # --- LOOP DE HORÁRIOS (07:00 as 20:00) ---
-    horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(7, 21) for m in (0, 30)]
+    horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
 
     for horario in horarios_tabela:
         # Cria a linha visualmente colada (graças ao CSS global)
@@ -1095,4 +1095,5 @@ else:
                             'dados': dados_agendamento
                         }
                         st.rerun()
+
 
