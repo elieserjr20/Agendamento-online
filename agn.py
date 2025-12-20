@@ -1147,9 +1147,10 @@ else:
         if horarios_com_vagas:
             st.write("Legenda: 🟩 Ambos Livres | 🟨 Apenas 1 Vaga")
             
-            html_badges = ""
+            # Iniciamos o container flexbox
+            html_final = '<div style="display: flex; flex-wrap: wrap; gap: 5px;">'
+            
             for h, qtd in horarios_com_vagas:
-                # Cor diferente se tiver 1 ou 2 vagas
                 if qtd == len(barbeiros):
                     bg_color = "#2E8B57" # Verde Escuro
                     title_text = "Ambos os barbeiros livres"
@@ -1157,25 +1158,18 @@ else:
                     bg_color = "#DAA520" # Dourado
                     title_text = "Apenas 1 barbeiro livre"
 
-                # CORREÇÃO: Usamos aspas simples triplas (''') aqui
-                html_badges += f'''
-                <div style="
-                    background-color: {bg_color}; color: white; 
-                    padding: 5px 12px; margin: 3px; border-radius: 15px; 
-                    font-weight: bold; border: 1px solid white; display: inline-block;
-                    cursor: default;" title="{title_text}">
-                    {h}
-                </div>
-                '''
+                # ATENÇÃO: Usamos aspas simples triplas (''') e tudo numa linha só para evitar erros de renderização
+                html_final += f'''<div style="background-color: {bg_color}; color: white; padding: 5px 12px; margin: 3px; border-radius: 15px; font-weight: bold; border: 1px solid white; display: inline-block; cursor: default;" title="{title_text}">{h}</div>'''
             
-            # CORREÇÃO: Usamos aspas simples triplas (''') aqui também
-            st.markdown(f'''
-            <div style="display: flex; flex-wrap: wrap; gap: 5px;">
-                {html_badges}
-            </div>
-            ''', unsafe_allow_html=True)
+            html_final += '</div>'
+            
+            # Renderizamos o HTML final
+            st.markdown(html_final, unsafe_allow_html=True)
+            
         else:
             st.warning("Não há horários disponíveis para agendamento nesta data (segundo as regras atuais).")
+    
+    st.write("") # Espaço antes da tabela
             
     # Header da Tabela
     header_cols = st.columns([1.5, 3, 3])
@@ -1301,4 +1295,5 @@ else:
                             'dados': dados_agendamento
                         }
                         st.rerun()
+
 
