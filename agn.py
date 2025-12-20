@@ -261,68 +261,6 @@ aplicar_tema_natal()
 
 st.markdown("<a id='top_anchor'></a>", unsafe_allow_html=True)
 
-# CSS customizado para colorir os botões da tabela e centralizar o texto
-# CSS customizado para criar uma grade de agendamentos visual e responsiva
-st.markdown("""
-<style>
-    /* --- CÓDIGO ADICIONADO PARA REMOVER O ESPAÇO NO TOPO --- */
-    div.block-container {
-        padding-top: 1.5rem; /* Ajuste este valor se necessário, ex: 0.5rem ou 0rem */
-    }
-    /* --------------------------------------------------------- */
-    
-    /* Define a célula base do agendamento */
-    .schedule-cell {
-        height: 50px;              /* Altura fixa para cada célula */
-        border-radius: 8px;        /* Bordas arredondadas */
-        display: flex;             /* Centraliza o conteúdo */
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 5px;        /* Espaço entre as linhas */
-        padding: 5px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); /* Sombra sutil */
-    }
-
-    /* Cores de fundo baseadas no status */
-    .schedule-cell.disponivel { background-color: #28a745; } /* Verde */
-    .schedule-cell.ocupado    { background-color: #dc3545; } /* Vermelho */
-    .schedule-cell.almoco     { background-color: #ffc107; color: black;} /* Laranja */
-    .schedule-cell.indisponivel { background-color: #6c757d; } /* Cinza padrão para indisponível (SDJ, Descanso) */
-    .schedule-cell.fechado { background-color: #A9A9A9; color: black; } /* Nova classe para "Fechado" */
-
-    /* Estiliza o botão dentro da célula para ser "invisível" mas clicável */
-    .schedule-cell button {
-        background-color: transparent;
-        color: white;
-        border: none;
-        width: 100%;
-        height: 100%;
-        font-weight: bold;
-    }
-    
-    /* Para o texto do botão (que é um <p> dentro do botão do Streamlit) */
-    .schedule-cell button p {
-        color: white; /* Cor do texto para status verde e vermelho */
-        margin: 0;
-        white-space: nowrap;      /* Impede a quebra de linha */
-        overflow: hidden;         /* Esconde o que passar do limite */
-        text-overflow: ellipsis;  /* Adiciona "..." ao final de texto longo */
-    }
-
-    /* Cor do texto específica para a célula de almoço */
-    .schedule-cell.almoco button p {
-        color: black;
-    }
-
-    /* Remove o ponteiro de clique para horários não clicáveis */
-    .schedule-cell.indisponivel {
-        pointer-events: none;
-    }
-
-</style>
-""", unsafe_allow_html=True)
-
-
 # --- INICIALIZAÇÃO DO FIREBASE E E-MAIL (Mesmo do código original) ---
 
 FIREBASE_CREDENTIALS = None
@@ -1235,3 +1173,4 @@ else:
                         }
                         st.rerun()
                         
+
