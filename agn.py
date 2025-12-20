@@ -903,7 +903,6 @@ elif st.session_state.view == 'fechar':
             st.session_state.view = 'agenda' # <-- Corrigido para 'agenda'
             st.rerun()
             
-# --- TELA PRINCIPAL (GRID DE AGENDAMENTOS) ---
 # --- TELA PRINCIPAL (VISUAL DE TABELA EXCEL) ---
 else:
     # 1. Ajuste de scroll para o topo (se necessário)
@@ -911,7 +910,10 @@ else:
         st.markdown("<script>window.location.href = '#top_anchor';</script>", unsafe_allow_html=True)
         st.session_state.scroll_to_top = False
 
-    # 2. Cabeçalho e Logo
+    # --- TÍTULO E LOGO (CORRIGIDO) ---
+    # O título agora fica ACIMA da logo, centralizado
+    st.markdown("<h2 style='text-align: center; margin-bottom: 0px;'>Agendamento Interno</h2>", unsafe_allow_html=True)
+    
     cols_logo = st.columns([1, 2, 1])
     with cols_logo[1]:
         st.image("https://i.imgur.com/zJTASJk.png", width=350)
@@ -952,11 +954,10 @@ else:
     if st.session_state.chat_error:
         st.error(st.session_state.chat_error, icon="🚨")
 
-    # 5. Ferramentas (Bloquear / Desbloquear) - Mantendo a lógica funcional
+    # 5. Ferramentas (Bloquear / Desbloquear)
     with st.expander("🛠️ Ferramentas (Fechar/Desbloquear Horários)"):
         tab_bloq, tab_desbloq = st.tabs(["🔒 Bloquear", "🔓 Desbloquear"])
         
-        # Aba Bloquear
         with tab_bloq:
             with st.form("form_fechar_horario", clear_on_submit=True):
                 horarios_ops = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
@@ -975,7 +976,6 @@ else:
                             st.success("Fechado!"); time.sleep(1); st.rerun()
                     except Exception as e: st.error(f"Erro: {e}")
 
-        # Aba Desbloquear
         with tab_desbloq:
              with st.form("form_desbloquear", clear_on_submit=True):
                 c1, c2, c3 = st.columns(3)
@@ -994,7 +994,7 @@ else:
     st.divider()
 
     # ==============================================================================
-    # 📅 TABELA ESTILO EXCEL (CLICÁVEL E MOBILE) - NOVO CÓDIGO
+    # 📅 TABELA ESTILO EXCEL (VOLTANDO AO VISUAL COMPACTO)
     # ==============================================================================
     
     data_obj = data_selecionada
@@ -1002,98 +1002,111 @@ else:
     data_para_id = data_obj.strftime('%Y-%m-%d')
     ocupados_map = buscar_agendamentos_do_dia(data_obj)
 
-    # --- CABEÇALHO DA TABELA ---
-    # Colunas coladas (proporção ajustada para mobile)
-    cols_head = st.columns([1.3, 2.5, 2.5]) 
-    cols_head[0].markdown("<div class='header-cell'>Horário</div>", unsafe_allow_html=True)
-    cols_head[1].markdown(f"<div class='header-cell'>{barbeiros[0]}</div>", unsafe_allow_html=True)
-    cols_head[2].markdown(f"<div class='header-cell'>{barbeiros[1]}</div>", unsafe_allow_html=True)
+    # --- CSS PARA FORÇAR FORMATO DE TABELA NO MOBILE ---
+    st.markdown("""
+    <style>
+        /* Remove padding extra das colunas para ficar "colado" */
+        [data-testid="column"] {
+            padding: 0px !important;
+        }
+        /* Estilo da célula de hora */
+        .time-cell-compact {
+            font-size: 14px; font-weight: bold; color: #FFF;
+            background-color: #222; text-align: center;
+            padding: 8px 0; border-bottom: 1px solid #444;
+            height: 100%; display: flex; align-items: center; justify-content: center;
+        }
+        /* Estilo do Header */
+        .header-cell-compact {
+            font-size: 14px; font-weight: bold; color: #FFD700;
+            text-align: center; padding-bottom: 5px; border-bottom: 2px solid #FFD700;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
-    # --- LOOP DE HORÁRIOS (07:00 as 20:00) ---
-    horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+    # Header da Tabela
+    cols_head = st.columns([1.2, 3, 3]) 
+    cols_head[0].markdown("<div class='header-cell-compact'>Horário</div>", unsafe_allow_html=True)
+    cols_head[1].markdown(f"<div class='header-cell-compact'>{barbeiros[0]}</div>", unsafe_allow_html=True)
+    cols_head[2].markdown(f"<div class='header-cell-compact'>{barbeiros[1]}</div>", unsafe_allow_html=True)
+
+    # Loop de Horários
+    horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(7, 21) for m in (0, 30)]
 
     for horario in horarios_tabela:
-        # Cria a linha visualmente colada (graças ao CSS global)
-        row = st.columns([1.3, 2.5, 2.5])
+        # Usamos colunas, mas o CSS acima vai ajudar a manter compacto
+        grid_cols = st.columns([1.2, 3, 3])
         
-        # 1. Célula da Hora (Texto Dourado/Escuro)
-        with row[0]:
-            st.markdown(f"<div class='time-cell'>{horario}</div>", unsafe_allow_html=True)
+        # 1. Coluna do Horário
+        grid_cols[0].markdown(f"<div class='time-cell-compact'>{horario}</div>", unsafe_allow_html=True)
 
-        # 2. Células dos Barbeiros (Botões Nativos)
+        # 2. Colunas dos Barbeiros
         for i, barbeiro in enumerate(barbeiros):
-            col_idx = i + 1
-            
-            # --- REGRAS DE STATUS ---
-            status = "livre"
-            label_botao = "Livre"
+            status = "disponivel"
+            texto_botao = "Livre"
             dados_agendamento = {}
-            is_disabled = False
-            
+            is_clicavel = True
+
+            # --- LÓGICA DE REGRAS ---
             dia_mes = data_obj.day
             mes_ano = data_obj.month
             dia_semana = data_obj.weekday()
-            is_intervalo_especial = (mes_ano == 12 and 14 <= dia_mes <= 31) 
+            is_intervalo_especial = (mes_ano == 12 and 14 <= dia_mes <= 31)
             hora_int = int(horario.split(':')[0])
-            
+
             id_padrao = f"{data_para_id}_{horario}_{barbeiro}"
             id_bloqueado = f"{data_para_id}_{horario}_{barbeiro}_BLOQUEADO"
 
-            # A. Verifica Banco de Dados
-            encontrou = False
             if id_padrao in ocupados_map:
                 dados_agendamento = ocupados_map[id_padrao]
                 nome = dados_agendamento.get("nome", "Ocupado")
-                if nome == "Fechado": status, label_botao, is_disabled = "fechado", "Fechado", True
-                elif nome == "Almoço": status, label_botao, is_disabled = "almoco", "Almoço", True
-                else: status, label_botao = "ocupado", nome
-                encontrou = True
+                if nome == "Fechado": status, texto_botao, is_clicavel = "fechado", "Fechado", False
+                elif nome == "Almoço": status, texto_botao, is_clicavel = "almoco", "Almoço", False
+                else: status, texto_botao = "ocupado", nome
             elif id_bloqueado in ocupados_map:
-                status, label_botao, is_disabled = "fechado", "Bloqueado", True
-                encontrou = True
+                status, texto_botao, dados_agendamento = "ocupado", "Bloqueado", {"nome": "BLOQUEADO"}
 
-            # B. Verifica Regras Fixas (Se não achou no banco)
-            if not encontrou and not is_intervalo_especial:
-                if horario in ["07:00", "07:30"]: status, label_botao, is_disabled = "fechado", "SDJ", True
-                elif horario == "08:00" and barbeiro == "Lucas Borges": status, label_botao, is_disabled = "fechado", "Indisp.", True
-                elif dia_semana == 6: status, label_botao, is_disabled = "fechado", "Fechado", True
-                elif dia_semana < 5 and hora_int in [12, 13]: status, label_botao, is_disabled = "almoco", "Almoço", True
+            # Regras fixas (se não achou nada no banco)
+            elif not is_intervalo_especial:
+                if horario in ["07:00", "07:30"]: status, texto_botao, is_clicavel = "indisponivel", "SDJ", False
+                elif horario == "08:00" and barbeiro == "Lucas Borges": status, texto_botao, is_clicavel = "indisponivel", "Indisp.", False
+                elif dia_semana == 6: status, texto_botao, is_clicavel = "fechado", "Fechado", False
+                elif dia_semana < 5 and hora_int in [12, 13]: status, texto_botao, is_clicavel = "almoco", "Almoço", False
 
-            # --- DEFINIÇÃO VISUAL (TIPO DO BOTÃO) ---
-            # Secondary = Verde (definido no CSS) | Primary = Vermelho (definido no CSS)
-            tipo_botao = "secondary" 
-            if status == "ocupado":
-                tipo_botao = "primary"
-            
-            # Se status for "livre", o texto fica "Livre" (curto para mobile)
-            if status == "livre":
-                label_botao = "Livre"
-
-            # --- RENDERIZA O BOTÃO ---
-            with row[col_idx]:
-                key_btn = f"btn_{data_str}_{horario}_{barbeiro}"
+            # --- VISUAL DO BOTÃO (HTML) ---
+            # Voltamos ao HTML para garantir que fique "Reto" e "Compacto" (Tabela)
+            with grid_cols[i+1]:
+                key = f"btn_{data_str}_{horario}_{barbeiro}"
                 
-                clicou = st.button(
-                    label_botao, 
-                    key=key_btn, 
-                    disabled=is_disabled, 
-                    type=tipo_botao,
-                    use_container_width=True # Fundamental para o layout tabela
-                )
+                # Definição de Cores Estilo Excel
+                if status == 'disponivel': cor_fundo, cor_texto = '#28a745', 'white' # Verde
+                elif status == 'ocupado':  cor_fundo, cor_texto = '#dc3545', 'white' # Vermelho
+                elif status == 'almoco':   cor_fundo, cor_texto = '#ffc107', 'black' # Amarelo
+                elif status == 'indisponivel': cor_fundo, cor_texto = '#6c757d', 'white' # Cinza
+                elif status == 'fechado':  cor_fundo, cor_texto = '#A9A9A9', 'black' # Cinza Claro
+                else: cor_fundo, cor_texto = '#6c757d', 'white'
 
-                if clicou:
-                    if status == 'livre':
+                # HTML Visual (O botão bonito)
+                botao_html = f"""
+                    <div style="
+                        background-color: {cor_fundo}; color: {cor_texto};
+                        border-radius: 4px; padding: 6px 4px; margin: 1px 0;
+                        text-align: center; font-size: 13px; font-weight: bold;
+                        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                        cursor: pointer; border: 1px solid rgba(0,0,0,0.1);
+                    ">{texto_botao}</div>
+                """
+                st.markdown(botao_html, unsafe_allow_html=True)
+                
+                # Botão Invisível do Streamlit (Cobre o HTML e captura o clique)
+                if st.button(" ", key=key, disabled=not is_clicavel):
+                    if status == 'disponivel':
                         st.session_state.view = 'agendar'
-                        st.session_state.agendamento_info = {
-                            'data_obj': data_obj, 'horario': horario, 'barbeiro': barbeiro
-                        }
+                        st.session_state.agendamento_info = {'data_obj': data_obj, 'horario': horario, 'barbeiro': barbeiro}
                         st.rerun()
-                    elif status == 'ocupado':
+                    elif status in ['ocupado', 'almoco', 'fechado']:
                         st.session_state.view = 'cancelar'
-                        st.session_state.agendamento_info = {
-                            'data_obj': data_obj, 'horario': horario, 'barbeiro': barbeiro,
-                            'dados': dados_agendamento
-                        }
+                        st.session_state.agendamento_info = {'data_obj': data_obj, 'horario': horario, 'barbeiro': barbeiro, 'dados': dados_agendamento}
                         st.rerun()
 
 
