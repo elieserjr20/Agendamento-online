@@ -1081,6 +1081,102 @@ else:
     ocupados_map = buscar_agendamentos_do_dia(data_obj)
     data_para_id = data_obj.strftime('%Y-%m-%d') # Formato AAAA-MM-DD para checar os IDs
 
+    # --- NOVO: RADAR DE VAGAS (Resumo no Topo) ---
+    # Geramos a lista de horários para análise
+    horarios_analise = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+    horarios_com_vagas = [] # Lista vai guardar tuplas: (horario, qtd_livres)
+
+    # Variáveis auxiliares para a lógica (as mesmas da tabela principal)
+    dia_mes = data_obj.day
+    mes_ano = data_obj.month
+    dia_semana = data_obj.weekday()
+    # Copiando a lógica de intervalo especial que já existe no teu código
+    is_intervalo_especial = (mes_ano == 12 and dia_mes == 14)
+    
+    eh_hoje = data_obj == datetime.today().date()
+    hora_atual_dt = datetime.now()
+
+    for horario in horarios_analise:
+        barbeiros_livres_count = 0
+        hora_int = int(horario.split(':')[0])
+        minuto_int = int(horario.split(':')[1])
+        
+        # Filtro: Se for hoje e o horário já passou, não sugerimos
+        if eh_hoje:
+            hora_analise_dt = datetime.now().replace(hour=hora_int, minute=minuto_int, second=0, microsecond=0)
+            if hora_analise_dt < hora_atual_dt:
+                continue
+
+        for barbeiro in barbeiros:
+            # --- SIMULAÇÃO DA LÓGICA DE DISPONIBILIDADE DA GRELHA ---
+            status_temp = "disponivel" 
+            
+            id_padrao = f"{data_para_id}_{horario}_{barbeiro}"
+            id_bloqueado = f"{data_para_id}_{horario}_{barbeiro}_BLOQUEADO"
+            
+            # 1. Verifica no Banco de Dados
+            esta_no_banco = (id_padrao in ocupados_map or id_bloqueado in ocupados_map)
+
+            # 2. Aplica as Regras
+            if is_intervalo_especial:
+                # No dia especial, só está ocupado se estiver no banco
+                if esta_no_banco:
+                    status_temp = "ocupado"
+            else:
+                # Dias normais
+                if esta_no_banco:
+                    status_temp = "ocupado"
+                elif horario in ["07:00", "07:30"]:
+                    status_temp = "indisponivel"
+                elif horario == "08:00" and barbeiro == "Lucas Borges":
+                    status_temp = "indisponivel"
+                elif dia_semana == 6: # Domingo
+                    status_temp = "fechado"
+                elif dia_semana < 5 and hora_int in [12, 13]: # Almoço (Seg-Sex)
+                    status_temp = "almoco"
+
+            if status_temp == "disponivel":
+                barbeiros_livres_count += 1
+        
+        # Se PELO MENOS UM barbeiro estiver livre, adicionamos ao radar
+        if barbeiros_livres_count > 0:
+            horarios_com_vagas.append((horario, barbeiros_livres_count))
+
+    # --- EXIBIÇÃO VISUAL (BADGES) ---
+    with st.expander(f"🔍 Ver horários disponíveis ({len(horarios_com_vagas)} encontrados)", expanded=False):
+        if horarios_com_vagas:
+            st.write("Legenda: 🟩 Ambos Livres | 🟨 Apenas 1 Vaga")
+            
+            html_badges = ""
+            for h, qtd in horarios_com_vagas:
+                # Cor diferente se tiver 1 ou 2 vagas
+                if qtd == len(barbeiros):
+                    bg_color = "#2E8B57" # Verde Escuro
+                    title_text = "Ambos os barbeiros livres"
+                else:
+                    bg_color = "#DAA520" # Dourado
+                    title_text = "Apenas 1 barbeiro livre"
+
+                # CORREÇÃO: Usamos aspas simples triplas (''') aqui
+                html_badges += f'''
+                <div style="
+                    background-color: {bg_color}; color: white; 
+                    padding: 5px 12px; margin: 3px; border-radius: 15px; 
+                    font-weight: bold; border: 1px solid white; display: inline-block;
+                    cursor: default;" title="{title_text}">
+                    {h}
+                </div>
+                '''
+            
+            # CORREÇÃO: Usamos aspas simples triplas (''') aqui também
+            st.markdown(f'''
+            <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                {html_badges}
+            </div>
+            ''', unsafe_allow_html=True)
+        else:
+            st.warning("Não há horários disponíveis para agendamento nesta data (segundo as regras atuais).")
+            
     # Header da Tabela
     header_cols = st.columns([1.5, 3, 3])
     header_cols[0].markdown("**Horário**")
@@ -1206,6 +1302,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
