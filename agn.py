@@ -1109,5 +1109,6 @@ else:
                         st.session_state.agendamento_info = {'data_obj': data_obj, 'horario': horario, 'barbeiro': barbeiro, 'dados': dados_agendamento}
                         st.rerun()
 
+#Teste
 
 
