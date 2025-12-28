@@ -390,6 +390,36 @@ def bloquear_horario(data_obj, horario, barbeiro, motivo="BLOQUEADO"):
         st.error(f"Erro ao bloquear horário: {e}")
         return False
         
+def definir_almoco_especifico(data_obj, horario, barbeiro):
+    """
+    Marca um horário específico como 'Almoço' (Laranja) no banco de dados.
+    Diferente de 'fechar', este mantém a semântica de pausa para refeição.
+    """
+    if not db: return
+    
+    data_str = data_obj.strftime('%Y-%m-%d')
+    doc_id = f"{data_str}_{horario}_{barbeiro}"
+    
+    try:
+        doc_ref = db.collection('agendamentos').document(doc_id)
+        doc_ref.set({
+            'barbeiro': barbeiro,
+            'horario': horario,
+            'data': datetime.combine(data_obj, datetime.min.time()),
+            'nome': 'Almoço',       # <--- A palavra-chave que pinta de laranja
+            'telefone': 'Sistema',
+            'servicos': ['Bloqueio de Almoço'],
+            'tipo': 'bloqueio_manual_almoco'
+        })
+        
+        # Garante que não existe um bloqueio secundário conflituoso
+        doc_bloq = db.collection('agendamentos').document(doc_id + "_BLOQUEADO")
+        if doc_bloq.get().exists:
+            doc_bloq.delete()
+            
+    except Exception as e:
+        st.error(f"Erro ao definir almoço: {e}")
+        
 # ADICIONE ESTA FUNÇÃO JUNTO COM AS OUTRAS FUNÇÕES DE BACKEND
 
 def desbloquear_horario(data_obj, horario_agendado, barbeiro):
@@ -1078,34 +1108,82 @@ else:
 
     # Botão para ir para a tela de fechar horários em lote
     # --- EXPANDER 1: FECHAR HORÁRIOS (MANUAL) ---
-    with st.expander("🔒 Fechar um Intervalo de Horários"):
-        with st.form("form_fechar_horario", clear_on_submit=True):
-            horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+    # --- EXPANDER 1: FECHAR E MARCAR ALMOÇO (ATUALIZADO) ---
+    with st.expander("🔒 Fechar Horários / Definir Almoço Manual"):
         
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                horario_inicio = st.selectbox("Início", options=horarios_tabela, key="fecha_inicio")
-            with col2:
-                horario_fim = st.selectbox("Fim", options=horarios_tabela, key="fecha_fim", index=len(horarios_tabela)-1)
-            with col3:
-                barbeiro_fechar = st.selectbox("Barbeiro", options=barbeiros, key="fecha_barbeiro")
+        # Criamos abas para separar "Fechar Geral" de "Marcar Almoço"
+        tab_fechar, tab_almoco_manual = st.tabs(["🚫 Fechar (Indisponível)", "🍽️ Marcar Almoço"])
 
-            if st.form_submit_button("Confirmar Fechamento", use_container_width=True):
-                try:
-                    start_index = horarios_tabela.index(horario_inicio)
-                    end_index = horarios_tabela.index(horario_fim)
-                    if start_index > end_index:
-                        st.error("O horário de início deve ser anterior ao final.")
-                    else:
-                        horarios_para_fechar = horarios_tabela[start_index:end_index+1]
-                        for horario in horarios_para_fechar:
-                            fechar_horario(data_obj, horario, barbeiro_fechar)
-                        st.success("Horários fechados com sucesso!")
-                        time.sleep(1)
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao fechar horários: {e}")
+        # --- ABA 1: FECHAR (Código antigo mantido) ---
+        with tab_fechar:
+            st.caption("Torna o horário cinzento (Fechado/Indisponível).")
+            with st.form("form_fechar_horario", clear_on_submit=True):
+                horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+            
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    horario_inicio = st.selectbox("Início", options=horarios_tabela, key="fecha_inicio")
+                with col2:
+                    horario_fim = st.selectbox("Fim", options=horarios_tabela, key="fecha_fim", index=len(horarios_tabela)-1)
+                with col3:
+                    barbeiro_fechar = st.selectbox("Barbeiro", options=barbeiros, key="fecha_barbeiro")
 
+                if st.form_submit_button("Confirmar Fechamento", use_container_width=True):
+                    try:
+                        start_index = horarios_tabela.index(horario_inicio)
+                        end_index = horarios_tabela.index(horario_fim)
+                        if start_index > end_index:
+                            st.error("O horário de início deve ser anterior ao final.")
+                        else:
+                            horarios_para_fechar = horarios_tabela[start_index:end_index+1]
+                            # Barra de progresso visual
+                            bar = st.progress(0)
+                            for i, horario in enumerate(horarios_para_fechar):
+                                fechar_horario(data_obj, horario, barbeiro_fechar)
+                                bar.progress((i + 1) / len(horarios_para_fechar))
+                                
+                            st.success("Horários fechados com sucesso!")
+                            time.sleep(1)
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao fechar horários: {e}")
+
+        # --- ABA 2: MARCAR ALMOÇO (NOVO) ---
+        with tab_almoco_manual:
+            st.caption("Torna o horário laranja (Almoço), mas bloqueia agendamentos.")
+            with st.form("form_marcar_almoco", clear_on_submit=True):
+                # Recriando lista para garantir escopo
+                horarios_almoco = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+            
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    h_ini_alm = st.selectbox("Início", options=horarios_almoco, key="alm_inicio")
+                with c2:
+                    h_fim_alm = st.selectbox("Fim", options=horarios_almoco, key="alm_fim", index=0) # Index 0 para forçar seleção
+                with c3:
+                    barb_alm = st.selectbox("Barbeiro", options=barbeiros, key="alm_barbeiro")
+
+                if st.form_submit_button("Definir como Almoço", use_container_width=True):
+                    try:
+                        idx_ini = horarios_almoco.index(h_ini_alm)
+                        idx_fim = horarios_almoco.index(h_fim_alm)
+                        
+                        if idx_ini > idx_fim:
+                            st.error("Início não pode ser depois do fim.")
+                        else:
+                            lista_almoco = horarios_almoco[idx_ini : idx_fim+1]
+                            
+                            prog_alm = st.progress(0)
+                            for i, h_vez in enumerate(lista_almoco):
+                                definir_almoco_especifico(data_obj, h_vez, barb_alm)
+                                prog_alm.progress((i + 1) / len(lista_almoco))
+                            
+                            st.success("Horário de almoço definido!")
+                            time.sleep(1)
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+                        
     # --- EXPANDER 2: DESBLOQUEAR E DIAS ESPECIAIS (NOVO SISTEMA) ---
     with st.expander("🔓 Desbloquear Horários e Dias Especiais"):
         tab_manual, tab_rapido = st.tabs(["🕒 Intervalo Manual", "📅 Dias/Almoço (Geral)"])
@@ -1411,6 +1489,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
