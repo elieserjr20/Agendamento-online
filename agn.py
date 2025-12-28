@@ -1056,6 +1056,15 @@ else:
     # Criamos a string 'DD/MM/AAAA' para usar nas chaves dos botões e exibição
     data_str = data_obj.strftime('%d/%m/%Y')
 
+    ocupados_map = buscar_agendamentos_do_dia(data_obj)
+    data_para_id = data_obj.strftime('%Y-%m-%d') # Formato AAAA-MM-DD para checar os IDs
+    chave_almoco = f"{data_para_id}_CONFIG_ALMOCO"
+    chave_domingo = f"{data_para_id}_CONFIG_DOMINGO"
+    
+    # Se a chave estiver no mapa, significa que foi liberado!
+    is_almoco_liberado = chave_almoco in ocupados_map
+    is_domingo_liberado = chave_domingo in ocupados_map
+
     # Botão para ir para a tela de fechar horários em lote
     # --- EXPANDER 1: FECHAR HORÁRIOS (MANUAL) ---
     with st.expander("🔒 Fechar um Intervalo de Horários"):
@@ -1161,16 +1170,6 @@ else:
                         configurar_excecao_dia(data_obj, "DOMINGO", ativar=True)
                         st.rerun()
 
-    # --- OTIMIZAÇÃO DE CARREGAMENTO ---
-    # 1. Busca todos os dados do dia de uma só vez, antes de desenhar a tabela
-    ocupados_map = buscar_agendamentos_do_dia(data_obj)
-    data_para_id = data_obj.strftime('%Y-%m-%d') # Formato AAAA-MM-DD para checar os IDs
-    chave_almoco = f"{data_para_id}_CONFIG_ALMOCO"
-    chave_domingo = f"{data_para_id}_CONFIG_DOMINGO"
-    
-    # Se a chave estiver no mapa, significa que foi liberado!
-    is_almoco_liberado = chave_almoco in ocupados_map
-    is_domingo_liberado = chave_domingo in ocupados_map
 
     # --- NOVO: RADAR DE VAGAS (Com Fuso Horário Corrigido) ---
     horarios_analise = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
@@ -1394,3 +1393,4 @@ else:
                         }
                         st.rerun()
                         
+
