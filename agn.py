@@ -1155,7 +1155,7 @@ else:
             
             # --- COLUNA DO ALMOÇO ---
             with c_almoco:
-                st.markdown("#### 🍔 Almoço")
+                st.markdown("#### 🍽️ Almoço")
                 if is_almoco_liberado:
                     st.info("Status: **LIBERADO**")
                     if st.button("Bloquear Almoço Novamente", use_container_width=True):
@@ -1411,6 +1411,7 @@ else:
                         }
                         st.rerun()
                         
+
 
 
 
