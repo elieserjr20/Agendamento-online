@@ -1171,7 +1171,7 @@ else:
                         st.rerun()
 
 
-    # --- NOVO: RADAR DE VAGAS (Com Fuso Horário Corrigido) ---
+   # --- NOVO: RADAR DE VAGAS (Com integração dos Desbloqueios) ---
     horarios_analise = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
     horarios_com_vagas = [] 
 
@@ -1181,12 +1181,9 @@ else:
     dia_semana = data_obj.weekday()
     is_intervalo_especial = (mes_ano == 12 and dia_mes == 14)
     
-    # --- CORREÇÃO DE FUSO HORÁRIO (CRUCIAL) ---
-    # Pegamos a hora do servidor e subtraímos 3h para simular o Brasil (UTC-3)
-    # Isso impede que horários futuros (ex: 10:30) sejam bloqueados às 08:00
+    # --- CORREÇÃO DE FUSO HORÁRIO ---
     agora_servidor = datetime.now()
     hora_atual_br = agora_servidor - timedelta(hours=3)
-    
     eh_hoje = data_obj == hora_atual_br.date()
 
     for horario in horarios_analise:
@@ -1195,17 +1192,14 @@ else:
         hora_int = int(horario.split(':')[0])
         minuto_int = int(horario.split(':')[1])
         
-        # Filtro de passado (se for hoje, usamos a hora ajustada do Brasil)
+        # Filtro de passado (se for hoje, ignora horas que já passaram)
         if eh_hoje:
-            # Cria a data/hora do agendamento baseada na data ajustada
             hora_analise_dt = hora_atual_br.replace(hour=hora_int, minute=minuto_int, second=0, microsecond=0)
-            
-            # Se a hora da vaga for menor que a hora atual (Brasil), pula
             if hora_analise_dt < hora_atual_br:
                 continue
 
         for barbeiro in barbeiros:
-            # --- LÓGICA DE DISPONIBILIDADE ---
+            # --- LÓGICA DE DISPONIBILIDADE DO RADAR ---
             status_temp = "disponivel" 
             
             id_padrao = f"{data_para_id}_{horario}_{barbeiro}"
@@ -1218,19 +1212,30 @@ else:
             else:
                 if esta_no_banco:
                     status_temp = "ocupado"
+                
+                # Regras fixas (7h e 7h30)
                 elif horario in ["07:00", "07:30"]:
                     status_temp = "indisponivel"
-                # Verifica Lucas
+                
+                # Regra do Lucas às 08:00
                 elif horario == "08:00" and "Lucas" in barbeiro:
                     status_temp = "indisponivel"
-                elif dia_semana == 6: 
+                
+                # --- CORREÇÃO AQUI: Regra do Domingo ---
+                # Só fecha se for domingo E NÃO estiver liberado
+                elif dia_semana == 6 and not is_domingo_liberado: 
                     status_temp = "fechado"
-                elif dia_semana < 5 and hora_int in [12, 13]: 
+                
+                # --- CORREÇÃO AQUI: Regra do Almoço ---
+                # Só fecha se for almoço E NÃO estiver liberado
+                elif dia_semana < 5 and hora_int in [12, 13] and not is_almoco_liberado: 
                     status_temp = "almoco"
 
+            # Se passou por todas as regras e continua 'disponivel', adiciona à lista
             if status_temp == "disponivel":
                 nomes_livres.append(barbeiro)
         
+        # Se houver pelo menos um barbeiro livre neste horário, adiciona ao Radar
         if nomes_livres:
             horarios_com_vagas.append((horario, nomes_livres))
 
@@ -1393,4 +1398,5 @@ else:
                         }
                         st.rerun()
                         
+
 
