@@ -494,6 +494,35 @@ def desbloquear_horario_especifico(data_obj, horario, barbeiro):
         st.error(f"Erro ao tentar desbloquear horário: {e}")
         return False
         
+def configurar_excecao_dia(data_obj, tipo, ativar=True):
+    """
+    Cria ou remove um documento de configuração que libera regras fixas.
+    tipo: "ALMOCO" ou "DOMINGO"
+    ativar: True para liberar (criar doc), False para bloquear (apagar doc)
+    """
+    if not db: return False
+    
+    data_str = data_obj.strftime('%Y-%m-%d')
+    # Cria uma chave especial. Ex: 2024-12-25_CONFIG_ALMOCO
+    chave_config = f"{data_str}_CONFIG_{tipo}"
+    
+    try:
+        doc_ref = db.collection('agendamentos').document(chave_config)
+        if ativar:
+            # Cria o documento que serve de "crachá de permissão"
+            doc_ref.set({
+                'tipo': 'CONFIG',
+                'descricao': f'Liberacao de {tipo}',
+                'data': datetime.combine(data_obj, datetime.min.time())
+            })
+        else:
+            # Remove o documento, voltando ao bloqueio padrão
+            doc_ref.delete()
+        return True
+    except Exception as e:
+        st.error(f"Erro ao configurar exceção: {e}")
+        return False
+        
 def remover_acentos(s):
     """
     Remove acentos de uma string, convertendo-a para uma forma 
@@ -1028,6 +1057,7 @@ else:
     data_str = data_obj.strftime('%d/%m/%Y')
 
     # Botão para ir para a tela de fechar horários em lote
+    # --- EXPANDER 1: FECHAR HORÁRIOS (MANUAL) ---
     with st.expander("🔒 Fechar um Intervalo de Horários"):
         with st.form("form_fechar_horario", clear_on_submit=True):
             horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
@@ -1056,30 +1086,91 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao fechar horários: {e}")
 
-    with st.expander("🔓 Desbloquear um Intervalo de Horários"):
-        with st.form("form_desbloquear_horario", clear_on_submit=True):
-            horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+    # --- EXPANDER 2: DESBLOQUEAR E DIAS ESPECIAIS (NOVO SISTEMA) ---
+    with st.expander("🔓 Desbloquear Horários e Dias Especiais"):
+        tab_manual, tab_rapido = st.tabs(["🕒 Intervalo Manual", "📅 Dias/Almoço (Geral)"])
         
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                horario_inicio_desbloq = st.selectbox("Início", options=horarios_tabela, key="desbloq_inicio")
-            with col2:
-                horario_fim_desbloq = st.selectbox("Fim", options=horarios_tabela, key="desbloq_fim", index=len(horarios_tabela)-1)
-            with col3:
-                barbeiro_desbloquear = st.selectbox("Barbeiro", options=barbeiros, key="desbloq_barbeiro")
+        # --- ABA 1: O TEU CÓDIGO ORIGINAL (MANTIDO) ---
+        with tab_manual:
+            st.caption("Selecione um início, um fim e o barbeiro para liberar.")
+            with st.form("form_desbloquear_horario", clear_on_submit=True):
+                # Recriando a lista aqui para garantir que está disponível localmente
+                horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+            
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    horario_inicio_desbloq = st.selectbox("Início", options=horarios_tabela, key="desbloq_inicio")
+                with col2:
+                    horario_fim_desbloq = st.selectbox("Fim", options=horarios_tabela, key="desbloq_fim", index=len(horarios_tabela)-1)
+                with col3:
+                    barbeiro_desbloquear = st.selectbox("Barbeiro", options=barbeiros, key="desbloq_barbeiro")
 
-            if st.form_submit_button("Confirmar Desbloqueio", use_container_width=True):
-                horarios_para_desbloquear = horarios_tabela[horarios_tabela.index(horario_inicio_desbloq):horarios_tabela.index(horario_fim_desbloq)+1]
-                for horario in horarios_para_desbloquear:
-                    desbloquear_horario_especifico(data_obj, horario, barbeiro_desbloquear)
-                st.success("Horários desbloqueados com sucesso!")
-                time.sleep(1)
-                st.rerun()
+                if st.form_submit_button("Confirmar Desbloqueio Manual", use_container_width=True):
+                    try:
+                        idx_inicio = horarios_tabela.index(horario_inicio_desbloq)
+                        idx_fim = horarios_tabela.index(horario_fim_desbloq)
+                        
+                        # Verifica se a ordem está certa
+                        if idx_inicio > idx_fim:
+                            st.error("O horário de início não pode ser depois do fim.")
+                        else:
+                            horarios_para_desbloquear = horarios_tabela[idx_inicio : idx_fim+1]
+                            
+                            progresso = st.progress(0)
+                            for i, horario in enumerate(horarios_para_desbloquear):
+                                desbloquear_horario_especifico(data_obj, horario, barbeiro_desbloquear)
+                                progresso.progress((i + 1) / len(horarios_para_desbloquear))
+                                
+                            st.success("Horários desbloqueados com sucesso!")
+                            time.sleep(1)
+                            st.rerun()
+                    except ValueError:
+                        st.error("Erro ao processar os horários.")
+
+        # --- ABA 2: AS NOVAS FUNÇÕES (ALMOÇO E DOMINGO) ---
+        with tab_rapido:
+            st.caption(f"Liberar regras gerais para: **{data_obj.strftime('%d/%m/%Y')}**")
+            
+            c_almoco, c_domingo = st.columns(2)
+            
+            # --- COLUNA DO ALMOÇO ---
+            with c_almoco:
+                st.markdown("#### 🍔 Almoço")
+                if is_almoco_liberado:
+                    st.info("Status: **LIBERADO**")
+                    if st.button("Bloquear Almoço Novamente", use_container_width=True):
+                        configurar_excecao_dia(data_obj, "ALMOCO", ativar=False)
+                        st.rerun()
+                else:
+                    st.warning("Status: **Bloqueado**")
+                    if st.button("🔓 Liberar Almoço", type="primary", use_container_width=True):
+                        configurar_excecao_dia(data_obj, "ALMOCO", ativar=True)
+                        st.rerun()
+
+            # --- COLUNA DO DOMINGO / FERIADO ---
+            with c_domingo:
+                st.markdown("#### ☀️ Dia Completo")
+                if is_domingo_liberado:
+                    st.info("Status: **LIBERADO**")
+                    if st.button("Bloquear Dia Novamente", use_container_width=True):
+                        configurar_excecao_dia(data_obj, "DOMINGO", ativar=False)
+                        st.rerun()
+                else:
+                    st.warning("Status: **Bloqueado**")
+                    if st.button("🔓 Liberar Dia Todo", type="primary", use_container_width=True):
+                        configurar_excecao_dia(data_obj, "DOMINGO", ativar=True)
+                        st.rerun()
 
     # --- OTIMIZAÇÃO DE CARREGAMENTO ---
     # 1. Busca todos os dados do dia de uma só vez, antes de desenhar a tabela
     ocupados_map = buscar_agendamentos_do_dia(data_obj)
     data_para_id = data_obj.strftime('%Y-%m-%d') # Formato AAAA-MM-DD para checar os IDs
+    chave_almoco = f"{data_para_id}_CONFIG_ALMOCO"
+    chave_domingo = f"{data_para_id}_CONFIG_DOMINGO"
+    
+    # Se a chave estiver no mapa, significa que foi liberado!
+    is_almoco_liberado = chave_almoco in ocupados_map
+    is_domingo_liberado = chave_domingo in ocupados_map
 
     # --- NOVO: RADAR DE VAGAS (Com Fuso Horário Corrigido) ---
     horarios_analise = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
@@ -1192,19 +1283,22 @@ else:
             dados_agendamento = {}
             is_clicavel = True
 
-            # --- LÓGICA SDJ ADICIONADA AQUI ---
+            # --- LÓGICA SDJ ---
             dia_mes = data_obj.day
             mes_ano = data_obj.month
             dia_semana = data_obj.weekday() # 0=Segunda, 6=Domingo
+            
+            # (Mantendo a tua regra antiga de 14 de Dezembro, se quiseres)
             is_intervalo_especial = (mes_ano == 12 and dia_mes == 14)
             
             hora_int = int(horario.split(':')[0])
 
-            # REGRA 0: DURANTE O INTERVALO ESPECIAL, QUASE TUDO É LIBERADO
+            # IDs padronizados
+            id_padrao = f"{data_para_id}_{horario}_{barbeiro}"
+            id_bloqueado = f"{data_para_id}_{horario}_{barbeiro}_BLOQUEADO"
+
+            # REGRA 0: DURANTE O INTERVALO ESPECIAL (DATA FIXA), QUASE TUDO É LIBERADO
             if is_intervalo_especial:
-                # Durante o intervalo, a única regra é verificar agendamentos no banco
-                id_padrao = f"{data_para_id}_{horario}_{barbeiro}"
-                id_bloqueado = f"{data_para_id}_{horario}_{barbeiro}_BLOQUEADO"
                 if id_padrao in ocupados_map:
                     dados_agendamento = ocupados_map[id_padrao]
                     nome = dados_agendamento.get("nome", "Ocupado")
@@ -1212,57 +1306,60 @@ else:
                 elif id_bloqueado in ocupados_map:
                     status, texto_botao, dados_agendamento = "ocupado", "Bloqueado", {"nome": "BLOQUEADO"}
 
-            # REGRAS PARA DIAS NORMAIS (FORA DO INTERVALO ESPECIAL)
+            # REGRAS PARA DIAS NORMAIS
             else:
-                # REGRA 1: Horários das 7h (SDJ)
-                id_padrao = f"{data_para_id}_{horario}_{barbeiro}"
-                id_bloqueado = f"{data_para_id}_{horario}_{barbeiro}_BLOQUEADO"
-
+                # REGRA 1: Checa se já existe algo no banco (Agendamento ou Bloqueio Manual)
                 if id_padrao in ocupados_map:
                     dados_agendamento = ocupados_map[id_padrao]
                     nome = dados_agendamento.get("nome", "Ocupado")
-                    # A verificação de "Fechado" agora acontece ANTES da regra de almoço.
+                    
                     if nome == "Fechado":
                         status, texto_botao, is_clicavel = "fechado", "Fechado", False
-                    elif nome == "Almoço": # Mantém a possibilidade de fechar como almoço em dias especiais
+                    elif nome == "Almoço": 
                         status, texto_botao, is_clicavel = "almoco", "Almoço", False
-                    else: # Se for qualquer outro nome, é um agendamento normal
+                    else: 
                         status, texto_botao = "ocupado", nome
 
                 elif id_bloqueado in ocupados_map:
                     status, texto_botao, dados_agendamento = "ocupado", "Bloqueado", {"nome": "BLOQUEADO"}
 
-                # 2. SE NÃO HOUVER NADA NO BANCO para este horário, aplicamos as regras fixas do sistema.
+                # 2. SE NÃO HOUVER NADA NO BANCO, APLICAR REGRAS DO SISTEMA
+                # [PASSO 2] AQUI ENTRAM AS NOVIDADES DO "AND NOT"
+                
                 elif horario in ["07:00", "07:30"]:
                     status, texto_botao, is_clicavel = "indisponivel", "SDJ", False
                 
                 elif horario == "08:00" and barbeiro == "Lucas Borges":
                     status, texto_botao, is_clicavel = "indisponivel", "Indisponível", False
                 
-                elif dia_semana == 6: # Domingo
+                # --- AQUI ESTÁ A MUDANÇA DO DOMINGO ---
+                # Só bloqueia se for domingo E NÃO estiver liberado pelo botão novo
+                elif dia_semana == 6 and not is_domingo_liberado: 
                     status, texto_botao, is_clicavel = "fechado", "Fechado", False
 
-                elif dia_semana < 5 and hora_int in [12, 13]: # Almoço
+                # --- AQUI ESTÁ A MUDANÇA DO ALMOÇO ---
+                # Só bloqueia se for hora de almoço E NÃO estiver liberado pelo botão novo
+                elif dia_semana < 5 and hora_int in [12, 13] and not is_almoco_liberado: 
                      status, texto_botao, is_clicavel = "almoco", "Almoço", False
 
-            # --- SEU CÓDIGO ORIGINAL DE BOTÕES RESTAURADO E ADAPTADO ---
-            key = f"btn_{data_str}_{horario}_{barbeiro}"
+            # --- SEU CÓDIGO DE VISUALIZAÇÃO DOS BOTÕES ---
+            key = f"btn_{data_para_id}_{horario}_{barbeiro}" # Ajustei data_str para data_para_id para garantir consistencia
             with grid_cols[i+1]:
+                # ... (resto do teu código de visualização do botão igual ao que mandaste) ...
                 if status == 'disponivel':
-                    cor_fundo = '#28a745'  # Verde
-                    # O 'texto_botao' e 'is_clicavel' já foram definidos antes, mas aqui garantimos o padrão
+                    cor_fundo = '#28a745'
                 elif status == 'ocupado':
-                    cor_fundo = '#dc3545'  # Vermelho
+                    cor_fundo = '#dc3545'
                 elif status == 'almoco':
-                    cor_fundo = '#ffc107'  # Laranja/Amarelo
-                    is_clicavel = False # Garante que não é clicável
+                    cor_fundo = '#ffc107'
+                    is_clicavel = False
                 elif status == 'indisponivel':
-                    cor_fundo = '#808080'  # Cinza
-                    is_clicavel = False # Garante que não é clicável
+                    cor_fundo = '#808080'
+                    is_clicavel = False
                 elif status == 'fechado':
-                     cor_fundo = '#A9A9A9' # Cinza claro
-                     is_clicavel = False
-                else: # Caso padrão
+                      cor_fundo = '#A9A9A9'
+                      is_clicavel = False
+                else:
                     cor_fundo = '#6c757d'
                     is_clicavel = False
                 
@@ -1278,12 +1375,11 @@ else:
                 st.markdown(botao_html, unsafe_allow_html=True)
                 st.markdown(f"<div style='text-align: center; font-size: 12px; color: #AAA;'>{barbeiro}</div>", unsafe_allow_html=True)
 
-                # O botão invisível que aciona a lógica, com as chamadas CORRIGIDAS
                 if st.button("", key=key, disabled=not is_clicavel):
                     if status == 'disponivel':
                         st.session_state.view = 'agendar'
                         st.session_state.agendamento_info = {
-                            'data_obj': data_obj, # Passa o objeto de data
+                            'data_obj': data_obj,
                             'horario': horario,
                             'barbeiro': barbeiro
                         }
@@ -1291,13 +1387,10 @@ else:
                     elif status in ['ocupado', 'almoco', 'fechado']:
                         st.session_state.view = 'cancelar'
                         st.session_state.agendamento_info = {
-                            'data_obj': data_obj, # Passa o objeto de data
+                            'data_obj': data_obj,
                             'horario': horario,
                             'barbeiro': barbeiro,
                             'dados': dados_agendamento
                         }
                         st.rerun()
-
-
-
-
+                        
