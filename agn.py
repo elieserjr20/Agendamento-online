@@ -468,31 +468,42 @@ def fechar_horario(data_obj, horario, barbeiro):
 
 def desbloquear_horario_especifico(data_obj, horario, barbeiro):
     """
-    Remove um agendamento/bloqueio específico, tentando apagar tanto o ID
-    padrão quanto o ID com sufixo _BLOQUEADO para garantir a limpeza.
+    Remove bloqueios manuais ou FORÇA a liberação em horários de sistema (Almoço/Domingo).
     """
-    if not db: return False
+    if not db: return
     
-    data_para_id = data_obj.strftime('%Y-%m-%d')
+    data_str = data_obj.strftime('%Y-%m-%d')
+    doc_id = f"{data_str}_{horario}_{barbeiro}"
+    doc_ref = db.collection('agendamentos').document(doc_id)
     
-    # Define os dois possíveis nomes de documento que podem estar ocupando o horário
-    chave_padrao = f"{data_para_id}_{horario}_{barbeiro}"
-    chave_bloqueado = f"{data_para_id}_{horario}_{barbeiro}_BLOQUEADO"
+    # Verifica se é um horário que o sistema bloqueia nativamente
+    hora_int = int(horario.split(':')[0])
+    dia_semana = data_obj.weekday() # 6 = Domingo
     
-    ref_padrao = db.collection('agendamentos').document(chave_padrao)
-    ref_bloqueado = db.collection('agendamentos').document(chave_bloqueado)
+    # É Almoço (12/13h em dias de semana) OU é Domingo?
+    eh_horario_sistema = (dia_semana < 5 and hora_int in [12, 13]) or (dia_semana == 6)
     
     try:
-        # Tenta apagar os dois documentos. O Firestore não gera erro se o documento não existir.
-        # Isso garante que tanto um agendamento normal quanto um bloqueio órfão sejam removidos.
-        ref_padrao.delete()
-        ref_bloqueado.delete()
-        
-        return True # Retorna sucesso, pois a intenção é deixar o horário livre.
-        
+        if eh_horario_sistema:
+            # Se o sistema bloqueia nativamente, deletar não adianta. 
+            # Temos de criar um documento a dizer "ESTOU LIVRE" para sobrepor a regra.
+            doc_ref.set({
+                'barbeiro': barbeiro,
+                'horario': horario,
+                'data': datetime.combine(data_obj, datetime.min.time()),
+                'nome': 'Liberado',  # <--- Palavra-chave mágica
+                'tipo': 'desbloqueio_manual'
+            })
+        else:
+            # Se for horário normal (ex: 15:00), basta apagar o bloqueio/agendamento antigo
+            doc_ref.delete()
+            
+        # Tenta apagar também o documento de bloqueio manual (com sufixo _BLOQUEADO), se existir
+        doc_bloq_ref = db.collection('agendamentos').document(f"{doc_id}_BLOQUEADO")
+        doc_bloq_ref.delete()
+            
     except Exception as e:
-        st.error(f"Erro ao tentar desbloquear horário: {e}")
-        return False
+        st.error(f"Erro ao desbloquear: {e}")
         
 def configurar_excecao_dia(data_obj, tipo, ativar=True):
     """
@@ -1316,8 +1327,10 @@ else:
                 if id_padrao in ocupados_map:
                     dados_agendamento = ocupados_map[id_padrao]
                     nome = dados_agendamento.get("nome", "Ocupado")
+                    if nome == "Liberado":
+                        status, texto_botao, is_clicavel = "disponivel", "Disponível", True
                     
-                    if nome == "Fechado":
+                    elif nome == "Fechado":
                         status, texto_botao, is_clicavel = "fechado", "Fechado", False
                     elif nome == "Almoço": 
                         status, texto_botao, is_clicavel = "almoco", "Almoço", False
@@ -1398,5 +1411,6 @@ else:
                         }
                         st.rerun()
                         
+
 
 
